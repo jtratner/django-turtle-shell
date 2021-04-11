@@ -1,0 +1,25 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<h2>Execution for {{func_name}} ({{object.pk}})</h2>
+<h4> State </h4>
+<p>{{object.status}}</p>
+<h4> Input </h4>
+<pre class="pre-scrollable bg-dark text-light"><code>{{object.input_json|pprint|escape}}</code></pre>
+{% if object.output_json %}
+<h4> Output </h4>
+<pre class="pre-scrollable bg-dark text-light"><code>{{object.output_json|pprint|escape}}</code></pre>
+{% endif %}
+{% if object.error_json %}
+<h4> Error </h4>
+<pre class="pre-scrollable bg-dark text-light"><code>{{object.error_json|pprint|escape}}</code></pre>
+{% endif %}
+<h4> User </h4>
+{{object.user}}
+<h4>Created </h4>
+{{object.created}}
+<h4>Modified</h4>
+{{object.modified}}
+{% endblock content %}
+
+

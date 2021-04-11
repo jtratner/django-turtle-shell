@@ -1,0 +1,11 @@
+{% extends "base.html" %}
+
+{% block content %}
+<ul>
+{% for elem in functions %}
+<li>
+  <p><a href="{% url 'turtle_shell:list-'|add:elem.name %}">{{elem.name}}</a> (
+    <a href="{% url 'turtle_shell:create-'|add:elem.name %}"><span class="glyphicon glyphicon-plus" aria-hidden="true"></span><span class="sr-only">Create New Execution</span></a> )</p>
+{% endfor %}
+</ul>
+{% endblock content %}

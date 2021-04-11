@@ -1,0 +1,13 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<h2>Executions for {{func_name}} </h2>
+<p><form action="{% url 'turtle_shell:create-'|add:func_name %}"><button class="btn btn-default btn-primary">Create a new execution <span class="glyphicon glyphicon-plus" aria-hidden="true"></button></form></p>
+<ul>
+  {% for object in object_list %}
+  <li><a href="{% url 'turtle_shell:detail-'|add:func_name object.pk %}">{{ object }} ({{object.status}})</a></li>
+  {% endfor %}
+</ul>
+{% endblock content %}
+
+

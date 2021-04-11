@@ -1,6 +1,16 @@
 Function to Form View
 =====================
 
+CURRENTLY BROKEN STUFF:
+
+1. Graphql view does not respect defaults :( (e.g., find_root_cause comes through as false :()
+2. Needs testing
+3. Needs lots of testing
+
+LIMITATIONS:
+
+1. Boolean fields always are passed in as False.
+
 Motivation
 ----------
 
@@ -48,13 +58,22 @@ Overall gist
 
 You register your functions with the library::
 
-    MyFuncWrapper = wrapit.wrap(myfunc)
+    Registry = turtle_shell.get_registry()
+
+    Registry.add(myfunc)
 
 Then in urls.py::
 
 
-    path("/myfunc", MyFuncWrapper.as_view())
-    path("/api/myfunc", MyFuncWrapper.as_view(graphql=True))
+    import turtle_shell
+
+    path("execute/", include(turtle_shell.get_registry().get_router().urls)l)
+
+If you want GraphQL, then [install graphene-django](https://docs.graphene-python.org/projects/django/en/latest/installation/)
+and put into installed apps (also django filter), then finally::
+
+    path("api", GraphQLView.as_view(schema=turtle_shell.get_registry().schema, graphiql=False)),
+    path("graphql", GraphQLView.as_view(schema=turtle_shell.get_registry().schema, graphiql=True))
 
 And finally run migrations::
 
