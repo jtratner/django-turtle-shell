@@ -1,15 +1,6 @@
 Function to Form View
 =====================
 
-CURRENTLY BROKEN STUFF:
-
-1. Graphql view does not respect defaults :( (e.g., find_root_cause comes through as false :()
-2. Needs testing
-3. Needs lots of testing
-
-LIMITATIONS:
-
-1. Boolean fields always are passed in as False.
 
 Motivation
 ----------
@@ -20,11 +11,17 @@ Motivation
 4. You want people to have website goodness (deep-linking, record of actions, easy on-boarding, etc)
 5. Composing and/or ability to long-poll endpoints seems cool to you.
 
+REMAINING WORK:
+
+1. Ability to do asynchronous executions (this is basically all set up)
+2. Better UI on output and/or ability to have structured graphql output for nicer APIs
+   Maybe some kind of output serializer? See end for some ideas.
+
 How does it work?
 -----------------
 
 
-This lil' old library converts _your_ function with annotations into a ✨Django Form✨ (that calls the function on ``form_valid``!)
+This lil' old library converts _your_ function with annotations into a ✨Django Form✨ and a graphql view.
 
 It leverages some neat features of defopt under the hood so that a function like this:
 
@@ -51,6 +48,16 @@ It leverages some neat features of defopt under the hood so that a function like
 Becomes this awesome form!
 
     <screenshot of form with fields, help text, etc>
+
+Why not FastAPI?
+----------------
+
+This is a great point! I didn't see it before I started.
+Using Django provides:
+
+0. FRONT END! -> key for non-technical users
+1. Easy ability to add in authentication/authorization (granted FastAPI has this)
+2. Literally didn't see it and we know django better
 
 
 Overall gist
@@ -87,15 +94,15 @@ Example Implementation
 
 executions.py::
 
-    from easy_execute import ExecutionWrapper
+    import turtle_shell
     from my_util_scripts import find_root_cause, summarize_issue, error_summary
 
-    Registry = ExecutionWrapper()
+    Registry = turtle_shell.get_registry()
 
 
-    FindRootCause = Registry.wrap(find_root_cause)
-    SummarizeIssue = Registry.wrap(summarize_issue)
-    ErrorSummary = Registry.wrap(error_summary)
+    FindRootCause = Registry.add(find_root_cause)
+    SummarizeIssue = Registry.add(summarize_issue)
+    ErrorSummary = Registry.add(error_summary)
 
 
 
@@ -130,12 +137,17 @@ Of course you can also customize further::
 
 views::
 
-    from . import executions
+    import turtle_shell
 
-    class FindRootCauseList(executions.FindRootCause.list_view()):
+    Registry = turtle_shell.get_registry()
+
+    class FindRootCauseList(Registry.get(find_root_cause).list_view()):
         template_name = "list-root-cause.html"
 
-    class FindRootCauseDetail(executions.FindRootCause.detail_view()):
+        def get_context_data(self):
+            # do some processing here - yay!
+
+    class FindRootCauseDetail(Registry.get(find_root_cause).detail_view()):
         template_name = "detail-root-cause.html"
 
 These use the generic django views under the hood.
@@ -145,6 +157,7 @@ What's missing from this idea
 
 - granular permissions (gotta think about nice API for this)
 - separate tables for different objects.
+- some kind of nicer serializer
 
 Using the library
 -----------------
@@ -170,14 +183,12 @@ Every function gets a generic output::
 
     mutation { dxFindRootCause(input: {job_id: ..., project: ...}) {
         uuid: str
-        execution {
-            status: String?
-            exitCode: Int
-            successful: Bool
-        }
-        rawOutput {
-            stderr: String?
-            stdout: String  # often JSON serializable
+        result {
+            status: STATUS
+            uuid: UUID!
+            inputJson: String!
+            outputJson: String?  # often JSON serializable
+            errorJson: String?
             }
         }
         errors: Optional {
@@ -239,11 +250,34 @@ who were not as command line savvy.
 2. Expose utility functions as forms for users
 
 
-Customizing the forms
----------------------
+How output serializers might look
+---------------------------------
 
-First - you can pass a config dictionary to ``function_to_form`` to tell it to
-use particular widgets for fields or how to construct a form field for your custom type (
-as a callable that takes standard field keyword arguments).
+1. One cool idea would just be to automatically convert to and from attrs classes using `cattrs` to customize output. (little more flexible in general)
+2. Could just return django models that get persisted (advantage is a bit easier to see old executions)
+3. Use pydantic to have some nice structure on output types :)
 
-You can also subclass the generated form object to add your own ``clean_*`` methods or more complex validation - yay!
+Attrs classes
+^^^^^^^^^^^^^
+
+Concept:
+    1. attr_to_graphene => convert attrs classes into nested graphene type. Handles resolving those fields from result
+    2. cattr.structure/cattr.unstructure to marshal to and from JSON
+
+Pros:
+
+* Easy to represent deeply nested contents
+* Do not need to save to DB
+
+Cons:
+
+* Reimplement a lot of the graphene django work :(
+
+
+Pydantic classes
+^^^^^^^^^^^^^^^^
+
+Better support for unmarshalling
+works with fast api as well
+
+https://pydantic-docs.helpmanual.io/usage/models/#data-conversion

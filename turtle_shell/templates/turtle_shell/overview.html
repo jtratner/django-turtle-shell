@@ -6,6 +6,7 @@
 <li>
   <p><a href="{% url 'turtle_shell:list-'|add:elem.name %}">{{elem.name}}</a> (
     <a href="{% url 'turtle_shell:create-'|add:elem.name %}"><span class="glyphicon glyphicon-plus" aria-hidden="true"></span><span class="sr-only">Create New Execution</span></a> )</p>
+{% if elem.doc %} <p><pre class="pre-scrollable bg-dark text-light"><code>{{elem.doc}}</code></pre></p> {% endif %}
 {% endfor %}
 </ul>
 {% endblock content %}

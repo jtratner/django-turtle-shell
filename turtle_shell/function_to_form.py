@@ -32,11 +32,13 @@ class _Function:
     func: callable
     name: str
     form_class: object
+    doc: str
 
     @classmethod
     def from_function(cls, func, *, name):
-        from turtle_shell.function_to_form import function_to_form
-        return cls(func=func, name=name, form_class=function_to_form(func, name=name))
+        form_class = function_to_form(func, name=name)
+        return cls(func=func, name=name, form_class=form_class,
+                doc=form_class.__doc__)
 
 
 def doc_mapping(str) -> Dict[str, str]:

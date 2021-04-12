@@ -3,6 +3,7 @@ from django.urls import reverse
 from django.conf import settings
 from turtle_shell import utils
 import uuid
+import cattr
 
 class CaughtException(Exception):
     """An exception that was caught and saved. Generally don't need to rollback transaction with
@@ -55,6 +56,8 @@ class ExecutionResult(models.Model):
             self.save()
             raise CaughtException(f"Failed on {self.func_name} ({type(e).__name__})", e) from e
         try:
+            if not isinstance(result, (dict, str, tuple)):
+                result = cattr.unstructure(result)
             self.output_json = result
             self.status = self.ExecutionStatus.DONE
             # allow ourselves to save again externally
