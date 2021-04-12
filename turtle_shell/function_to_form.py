@@ -123,7 +123,7 @@ def param_to_field(param: Parameter, config: dict = None) -> forms.Field:
     if is_enum_class:
         field_type = forms.TypedChoiceField
         kwargs["coerce"] = kind
-        kwargs["choices"] = [(member.value, member.value) for member in kind]
+        kwargs["choices"] = [(member.name, member.value) for member in kind]
         # coerce back
         if isinstance(param.default, kind):
             kwargs["initial"] = param.default.value

@@ -4,8 +4,9 @@ import json
 import pytest
 from django import forms
 
-from .utils import compare_form_field
+from .utils import compare_form_field, compare_forms
 from turtle_shell.function_to_form import param_to_field
+from turtle_shell.function_to_form import function_to_form
 import turtle_shell
 from defopt import Parameter
 from typing import Optional
@@ -18,7 +19,7 @@ class Color(enum.Enum):
     yellow = enum.auto()
 
 
-COLOR_CHOICES = [(e.value, e.value) for e in Color]
+COLOR_CHOICES = [(e.name, e.value) for e in Color]
 
 
 class Flag(enum.Enum):
@@ -75,24 +76,38 @@ def example_func(
 
 
 class ExpectedFormForExampleFunc(forms.Form):
-    """
-    First line of text content should be there.
-
-    Later lines of content here.
-    """
-
-    int_arg = forms.IntegerField()
-    int_arg_with_default = forms.IntegerField(initial=5)
-    bool_arg_default_true = forms.BooleanField(initial=True)
-    bool_arg_default_false = forms.BooleanField(initial=False)
-    bool_arg_no_default = forms.BooleanField()
-    str_arg = forms.CharField()
-    str_arg_with_default = forms.CharField(initial="whatever")
+    """\nFirst line of text content should be there. \n \n \n \n \n \n \n \n \n \n \n \n \n \n \n \nLater lines of content here."""
+    # extra whitespace cuz of weird docstring parsing from defopt
+    int_arg = forms.IntegerField(help_text="Browser native int field", required=True)
+    int_arg_with_default = forms.IntegerField(initial=5, help_text="Browser native int field with a default", required=False)
+    bool_arg_default_true = forms.BooleanField(initial=True, help_text="should be checked checkbox", required=False)
+    bool_arg_default_false = forms.BooleanField(initial=False, help_text="should be unchecked checkbox", required=False)
+    bool_arg_no_default = forms.BooleanField(help_text="Bool arg with a dropdown", required=True)
+    str_arg = forms.CharField(help_text="should be small field", required=True)
+    str_arg_with_default = forms.CharField(initial="whatever", help_text="should be small field with text in it", required=False)
     # TODO: different widget
-    text_arg = forms.CharField()
+    text_arg = forms.CharField(help_text="should have a big text field", required=True)
     # TODO: different widget
-    text_arg_with_default = forms.CharField(initial="something")
-    enum_auto = forms.ChoiceField
+    text_arg_with_default = forms.CharField(initial="something", help_text="should have big text field with something filled in", required=False)
+    undocumented_arg = forms.CharField(required=False)
+    enum_auto = forms.TypedChoiceField(choices=COLOR_CHOICES, required=True, help_text="should be choices with key names", coerce=Color)
+    enum_auto_not_required = forms.TypedChoiceField(choices=COLOR_CHOICES, required=False, coerce=Color,
+            help_text="choice field not required")
+    enum_auto_with_default = forms.TypedChoiceField(choices=COLOR_CHOICES,
+            initial=Color.green.value, required=False,
+            coerce=Color, help_text="choice field with entry selected")
+    enum_str = forms.TypedChoiceField(choices=[("is_apple", "is_apple"), ("is_banana",
+        "is_banana")], required=True, coerce=Flag, help_text="should be choices with string values")
+    enum_str_with_default = forms.TypedChoiceField(choices=[("is_apple", "is_apple"), ("is_banana",
+        "is_banana")], required=False, initial=Flag.is_apple.value,
+            coerce=Flag)
+
+
+def test_compare_complex_example(db):
+    actual = function_to_form(example_func)
+    compare_forms(actual, ExpectedFormForExampleFunc)
+
+
 
 
 def _make_parameter(name, annotation, doc="", **kwargs):

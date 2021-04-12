@@ -61,7 +61,7 @@ class DifferentDoc(forms.Form):
 def test_comparison():
 
     compare_forms(FormA, FormA)
-    with pytest.raises(AssertionError, match="Forms have different field names"):
+    with pytest.raises(AssertionError, match="Found unexpected form fields"):
         test_different_fields(raiseit=True)
 
     with pytest.raises(AssertionError, match=r"Field mismatch \(myfield\)"):
@@ -127,3 +127,24 @@ def test_doc_diff():
 
 def test_different_whitespace():
     compare_forms(DocForm, DocFormExtraWhitespace)
+
+
+def test_equivalent_forms():
+    class Form1(forms.Form):
+        myfield = forms.CharField(initial="whatever")
+
+    class Form2(forms.Form):
+        myfield = forms.CharField(initial="whatever")
+
+    compare_forms(Form1, Form2)
+
+
+def test_differ_on_doc():
+    class BasicForm(forms.Form):
+        myfield = forms.CharField(initial="whatever", help_text="what")
+
+    class BasicFormDifferentDoc(forms.Form):
+        myfield = forms.CharField(initial="whatever", help_text="different")
+
+    with pytest.raises(AssertionError, match="myfield.*"):
+        compare_forms(BasicForm, BasicFormDifferentDoc)
