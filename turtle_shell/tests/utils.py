@@ -13,8 +13,9 @@ def compare_form_field(name, actual, expected):
         raise AssertionError(f"Field type mismatch ({name}): {e}") from e
     actual_vars = vars(actual)
     expected_vars = vars(expected)
-    actual_vars.pop("widget", None)
-    expected_vars.pop("widget", None)
+    for k in ("widget", "_func_name", "_parameter_name"):
+        actual_vars.pop(k, None)
+        expected_vars.pop(k, None)
     try:
         assert actual_vars == expected_vars
     except AssertionError as e:
@@ -32,9 +33,10 @@ def compare_forms(actual: Type[forms.Form], expected: Type[forms.Form]):
     """
     actual_fields = actual.declared_fields
     expected_fields = expected.declared_fields
-    shared_keys = list(set(actual_fields.keys()) & set(expected_fields.keys()))
-    extra_keys = list(set(actual_fields.keys()) - set(expected_fields.keys()))
-    missing_keys = list(set(expected_fields.keys()) - set(actual_fields.keys()))
+    excluded_keys = {'_func_name', '_parameter_name'}
+    shared_keys = list(set(actual_fields.keys()) & set(expected_fields.keys()) - excluded_keys)
+    extra_keys = list(set(actual_fields.keys()) - set(expected_fields.keys()) - excluded_keys)
+    missing_keys = list(set(expected_fields.keys()) - set(actual_fields.keys()) - excluded_keys)
     for name in shared_keys:
         actual_field = actual_fields[name]
         expected_field = expected_fields[name]

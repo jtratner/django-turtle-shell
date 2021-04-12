@@ -7,6 +7,8 @@ from django import forms
 from .utils import compare_form_field, compare_forms
 from turtle_shell.function_to_form import param_to_field
 from turtle_shell.function_to_form import function_to_form
+from turtle_shell.function_to_form import Coercer
+from turtle_shell import utils
 import turtle_shell
 from defopt import Parameter
 from typing import Optional
@@ -19,7 +21,7 @@ class Color(enum.Enum):
     yellow = enum.auto()
 
 
-COLOR_CHOICES = [(e.name, e.value) for e in Color]
+COLOR_CHOICES = [(e.name, e.name) for e in Color]
 
 
 class Flag(enum.Enum):
@@ -90,17 +92,17 @@ class ExpectedFormForExampleFunc(forms.Form):
     # TODO: different widget
     text_arg_with_default = forms.CharField(initial="something", help_text="should have big text field with something filled in", required=False)
     undocumented_arg = forms.CharField(required=False, empty_value=None)
-    enum_auto = forms.TypedChoiceField(choices=COLOR_CHOICES, required=True, help_text="should be choices with key names", coerce=Color)
-    enum_auto_not_required = forms.TypedChoiceField(choices=COLOR_CHOICES, required=False, coerce=Color,
+    enum_auto = forms.TypedChoiceField(choices=COLOR_CHOICES, required=True, help_text="should be choices with key names", coerce=Coercer(Color, by_attribute=True))
+    enum_auto_not_required = forms.TypedChoiceField(choices=COLOR_CHOICES, required=False, coerce=Coercer(Color, by_attribute=True),
             help_text="choice field not required", empty_value=None)
     enum_auto_with_default = forms.TypedChoiceField(choices=COLOR_CHOICES,
             initial=Color.green.value, required=False,
-            coerce=Color, help_text="choice field with entry selected")
+            coerce=Coercer(Color, by_attribute=True), help_text="choice field with entry selected")
     enum_str = forms.TypedChoiceField(choices=[("is_apple", "is_apple"), ("is_banana",
-        "is_banana")], required=True, coerce=Flag, help_text="should be choices with string values")
+        "is_banana")], required=True, coerce=Coercer(Flag), help_text="should be choices with string values")
     enum_str_with_default = forms.TypedChoiceField(choices=[("is_apple", "is_apple"), ("is_banana",
         "is_banana")], required=False, initial=Flag.is_apple.value,
-            coerce=Flag)
+            coerce=Coercer(Flag))
 
 
 def test_compare_complex_example(db):
@@ -146,6 +148,10 @@ def _make_parameter(name, annotation, doc="", **kwargs):
             forms.CharField(initial="", required=False, help_text="some doc"),
         ),
         (
+            _make_parameter("bool_default_none", bool, "some doc", default=None),
+            forms.NullBooleanField(required=False, help_text="some doc")
+        ),
+        (
             _make_parameter("bool_falsey", bool, "some doc", default=False),
             forms.BooleanField(required=False, initial=False, help_text="some doc"),
         ),
@@ -158,13 +164,28 @@ def _make_parameter(name, annotation, doc="", **kwargs):
             forms.BooleanField(required=True, help_text="some doc"),
         ),
         (
-            _make_parameter("enum_auto", Color),
-            forms.TypedChoiceField(coerce=Color, choices=COLOR_CHOICES),
+            _make_parameter("optional_bool", Optional[bool], default=True),
+            forms.NullBooleanField(initial=True, required=False)
         ),
+        (
+            _make_parameter("optional_bool", Optional[bool], default=None),
+            forms.NullBooleanField(initial=None, required=False)
+        ),
+    ],
+    ids=lambda x: x.name if hasattr(x, "name") else x,
+)
+def test_convert_arg(arg, expected):
+    field = param_to_field(arg)
+    compare_form_field(arg.name, field, expected)
+
+
+@pytest.mark.parametrize(
+    "arg,expected",
+    [
         (
             _make_parameter("enum_auto_default", Color, "another doc", default=Color.green),
             forms.TypedChoiceField(
-                coerce=Color,
+                coerce=Coercer(Color, by_attribute=True),
                 initial=Color.green.value,
                 choices=COLOR_CHOICES,
                 required=False,
@@ -173,22 +194,18 @@ def _make_parameter(name, annotation, doc="", **kwargs):
         ),
         (
             _make_parameter("enum_str", Flag),
-            forms.TypedChoiceField(coerce=Flag, choices=FLAG_CHOICES),
+            forms.TypedChoiceField(coerce=Coercer(Flag), choices=FLAG_CHOICES),
         ),
         (
             _make_parameter("enum_str_default", Flag, default=Flag.is_apple),
             forms.TypedChoiceField(
-                coerce=Flag, initial="is_apple", choices=FLAG_CHOICES, required=False
+                coerce=Coercer(Flag), initial="is_apple", choices=FLAG_CHOICES, required=False
             ),
-        ),
-        (
-            _make_parameter("optional_bool", Optional[bool], default=True),
-            forms.NullBooleanField(initial=True, required=False)
         ),
     ],
     ids=lambda x: x.name if hasattr(x, "name") else x,
 )
-def test_convert_arg(arg, expected):
+def test_enum_convert_arg(arg, expected):
     field = param_to_field(arg)
     compare_form_field(arg.name, field, expected)
 
@@ -212,14 +229,20 @@ def test_validators():
     pass
 
 
-def execute_gql_and_get_input_json(func, gql):
+def execute_gql(func, gql):
     registry = turtle_shell.get_registry()
     registry.clear()
     registry.add(func)
     result = registry.schema.execute(gql)
+    return result
+
+def execute_gql_and_get_input_json(func, gql):
+    result = execute_gql(func, gql)
     data = result.data
     assert not result.errors
-    return json.loads(list(data.values())[0]["result"]["inputJson"])
+    result_from_response = list(data.values())[0]["result"]
+    assert result_from_response
+    return json.loads(result_from_response["inputJson"])
     # data = json.loads(result["data"]["result"]["inputJson"])
     # return data
 
@@ -230,6 +253,22 @@ def test_defaults(db):
 
     resp = execute_gql_and_get_input_json(myfunc, "mutation { executeMyfunc(input: {}) { result { inputJson }}}")
     assert resp == {"a": True, "b": "whatever"}
+
+def test_enum_preservation(db):
+    class ReadType(enum.Enum):
+        fastq = enum.auto()
+        bam = enum.auto()
+
+    def func(read_type: ReadType=ReadType.fastq):
+        return read_type
+
+    input_json = execute_gql_and_get_input_json(func, 'mutation { executeFunc(input: {readType: BAM}) { result { inputJson }}}')
+    assert input_json == {"read_type": utils.EnumRegistry.to_json_repr(ReadType.bam)}
+    assert input_json["read_type"]["__enum__"]["name"] == "bam"
+
+    input_json = execute_gql_and_get_input_json(func, "mutation { executeFunc(input: {}) { result { inputJson }}}")
+    assert input_json == {"read_type": utils.EnumRegistry.to_json_repr(ReadType.fastq)}
+    assert input_json["read_type"]["__enum__"]["name"] == "fastq"
 
 def test_default_none(db):
 
@@ -262,3 +301,32 @@ def test_error_with_no_default(db):
 def test_exceptions(parameter, exception_type, msg_regex):
     with pytest.raises(exception_type, match=msg_regex):
         param_to_field(parameter)
+
+
+def test_coercer():
+    class AutoEnum(enum.Enum):
+        whatever = enum.auto()
+        another = enum.auto()
+
+    class StringlyIntEnum(enum.Enum):
+        val1 = '1'
+        val2 = '2'
+
+    assert Coercer(AutoEnum)(AutoEnum.whatever.value) == AutoEnum.whatever
+    assert Coercer(AutoEnum)(str(AutoEnum.whatever.value)) == AutoEnum.whatever
+    assert Coercer(StringlyIntEnum)('1') == StringlyIntEnum('1')
+    with pytest.raises(ValueError):
+        Coercer(StringlyIntEnum)(1)
+
+
+def test_rendering_enum_with_mixed_type(db):
+    class MiscStringEnum(enum.Enum):
+        whatever = 'bobiswhatever'
+        mish = 'dish'
+        defa = 'default yeah'
+
+    def func(s: MiscStringEnum=MiscStringEnum.defa):
+        return s
+    input_json = execute_gql_and_get_input_json(func, "mutation { executeFunc(input: {}) { result { inputJson }}}")
+    input_json2 = execute_gql_and_get_input_json(func, "mutation { executeFunc(input: {s: DEFAULT_YEAH}) { result { inputJson }}}")
+    assert input_json == input_json2

@@ -1,6 +1,7 @@
-from django.db import models
+from django.db import models, transaction
 from django.urls import reverse
 from django.conf import settings
+from turtle_shell import utils
 import uuid
 
 class CaughtException(Exception):
@@ -19,9 +20,11 @@ class ResultJSONEncodeException(CaughtException):
 class ExecutionResult(models.Model):
     uuid = models.UUIDField(primary_key=True, unique=True, editable=False, default=uuid.uuid4)
     func_name = models.CharField(max_length=512, editable=False)
-    input_json = models.JSONField()
-    output_json = models.JSONField(default=dict, null=True)
-    error_json = models.JSONField(default=dict, null=True)
+    input_json = models.JSONField(encoder=utils.EnumAwareEncoder, decoder=utils.EnumAwareDecoder)
+    output_json = models.JSONField(default=dict, null=True, encoder=utils.EnumAwareEncoder,
+            decoder=utils.EnumAwareDecoder)
+    error_json = models.JSONField(default=dict, null=True, encoder=utils.EnumAwareEncoder,
+            decoder=utils.EnumAwareDecoder)
 
     class ExecutionStatus(models.TextChoices):
         CREATED = 'CREATED', 'Created'
@@ -54,7 +57,9 @@ class ExecutionResult(models.Model):
         try:
             self.output_json = result
             self.status = self.ExecutionStatus.DONE
-            self.save()
+            # allow ourselves to save again externally
+            with transaction.atomic():
+                self.save()
         except TypeError as e:
             self.error_json = {"type": type(e).__name__, "message": str(e)}
             msg = f"Failed on {self.func_name} ({type(e).__name__})"

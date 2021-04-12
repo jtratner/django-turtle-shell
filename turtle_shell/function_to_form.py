@@ -14,10 +14,13 @@ import typing
 
 from dataclasses import dataclass
 from django import forms
+from django.db.models import TextChoices
 from defopt import Parameter, signature, _parse_docstring
 from typing import Dict, Optional
 from typing import Type
 import pathlib
+
+from . import utils
 
 
 type2field_type = {int: forms.IntegerField, str: forms.CharField, bool: forms.BooleanField,
@@ -54,9 +57,21 @@ def function_to_form(func, *, config: dict = None, name: str=None) -> Type[forms
     fields = {}
     defaults = {}
     for parameter in sig.parameters.values():
-        fields[parameter.name] = param_to_field(parameter, config)
+        field = param_to_field(parameter, config)
+        fields[parameter.name] = field
         if parameter.default is not Parameter.empty:
             defaults[parameter.name] = parameter.default
+        if isinstance(field, forms.TypedChoiceField):
+            field._parameter_name = parameter.name
+            field._func_name = name
+            if parameter.default and parameter.default is not Parameter.empty:
+                print(field.choices)
+                for potential_default in [parameter.default.name, parameter.default.value]:
+                    if any(potential_default == x[0] for x in field.choices):
+                        defaults[parameter.name] = potential_default
+                        break
+                else:
+                    raise ValueError(f"Cannot figure out how to assign default for {parameter.name}: {parameter.default}")
     fields["__doc__"] = re.sub("\n+", "\n", _parse_docstring(inspect.getdoc(func)).text)
     form_name = "".join(part.capitalize() for part in func.__name__.split("_"))
 
@@ -103,6 +118,54 @@ def get_type_from_annotation(param: Parameter):
     return param.annotation
 
 
+@dataclass
+class Coercer:
+    """Wrapper so that we handle implicit string conversion of enum types :("""
+    enum_type: object
+    by_attribute: bool = False
+
+    def __call__(self, value):
+        print(f"COERCE: {self} {value}")
+        try:
+            resp = self._call(value)
+            print(f"COERCED TO: {self} {value} => {resp}")
+            return resp
+        except Exception as e:
+            import traceback
+            print(f"FAILED TO COERCE {repr(value)}({value})")
+            traceback.print_exc()
+            raise
+    def _call(self, value):
+        if value and isinstance(value, self.enum_type):
+            print("ALREADY INSTANCE")
+            return value
+        if self.by_attribute:
+            print("BY ATTRIBUTE")
+            return getattr(self.enum_type, value)
+        try:
+            print("BY __call__")
+            resp = self.enum_type(value)
+            print(f"RESULT: {resp} ({repr(resp)})")
+            return resp
+        except ValueError as e:
+            import traceback
+            traceback.print_exc()
+            try:
+                print("BY int coerced __call__")
+                return self.enum_type(int(value))
+            except ValueError as f:
+                # could not coerce to int :(
+                pass
+            if isinstance(value, str):
+                # fallback to some kind of name thing if necesary
+                try:
+                    return getattr(self.enum_type, value)
+                except AttributeError:
+                    pass
+            raise e from e
+        assert False, "Should not get here"
+
+
 def param_to_field(param: Parameter, config: dict = None) -> forms.Field:
     """Convert a specific arg to a django form field.
 
@@ -121,22 +184,59 @@ def param_to_field(param: Parameter, config: dict = None) -> forms.Field:
         # e.g. stupid generic type stuff
         pass
     if is_enum_class:
+        utils.EnumRegistry.register(kind)
         field_type = forms.TypedChoiceField
-        kwargs["coerce"] = kind
-        kwargs["choices"] = [(member.name, member.value) for member in kind]
-        # coerce back
-        if isinstance(param.default, kind):
-            kwargs["initial"] = param.default.value
+        kwargs.update(make_enum_kwargs(param=param, kind=kind))
     else:
-        field_type = all_types.get(param.annotation, all_types.get(kind))
-        for k, v in all_types.items():
-            if field_type:
-                break
-            if inspect.isclass(k) and issubclass(kind, k) or k == kind:
-                field_type = v
-                break
-        if not field_type:
-            raise ValueError(f"Field {param.name}: Unknown field type: {param.annotation}")
+        field_type = get_for_param_by_type(all_types, param=param, kind=kind)
+    if not field_type:
+        raise ValueError(f"Field {param.name}: Unknown field type: {param.annotation}")
+    # do not overwrite kwargs if already specified
+    kwargs =  {**extra_kwargs(field_type, param), **kwargs}
+    if field_type == forms.BooleanField and param.default is None:
+        field_type = forms.NullBooleanField
+
+    widget = get_for_param_by_type(widgets, param=param, kind=kind)
+    if widget:
+        kwargs['widget'] = widget
+    return field_type(**kwargs)
+
+
+def make_enum_kwargs(kind, param):
+    kwargs = {}
+    if all(isinstance(member.value, int) for member in kind):
+        kwargs["choices"] = TextChoices(f'{kind.__name__}Enum', {member.name: (member.name, member.name) for
+            member in kind}).choices
+        kwargs["coerce"] = Coercer(kind, by_attribute=True)
+    else:
+        # we set up all the kinds of entries to make it a bit easier to do the names and the
+        # values...
+        kwargs["choices"] = TextChoices(f'{kind.__name__}Enum', dict([(member.name, (str(member.value),
+            member.name)) for member in kind] + [(str(member.value), (member.name, member.name)) for
+                member in kind])).choices
+        kwargs["coerce"] = Coercer(kind)
+    # coerce back
+    if isinstance(param.default, kind):
+        kwargs["initial"] = param.default.value
+    return kwargs
+
+
+def get_for_param_by_type(dct, *, param, kind):
+    """Grab the appropriate element out of dict based on param type.
+
+    Ordering:
+        1. param.name (i.e., something custom specified by user)
+        2. param.annotation
+        3. underlying type if typing.Optional
+    """
+    if elem := dct.get(param.name, dct.get(param.annotation, dct.get(kind))):
+        return elem
+    for k, v in dct.items():
+        if inspect.isclass(k) and issubclass(kind, k) or k == kind:
+            return v
+
+def extra_kwargs(field_type, param):
+    kwargs = {}
     if param.default is Parameter.empty:
         kwargs["required"] = True
     elif param.default is None:
@@ -149,15 +249,6 @@ def param_to_field(param: Parameter, config: dict = None) -> forms.Field:
         kwargs.setdefault("initial", param.default)
     if param.doc:
         kwargs["help_text"] = param.doc
-    for k, v in widgets.items():
-        if isinstance(k, str):
-            if param.name == k:
-                kwargs["widget"] = v
-                break
-            continue
-        if issubclass(k, param.annotation):
-            kwargs["widget"] = v
-            break
-    return field_type(**kwargs)
+    return kwargs
 
 
