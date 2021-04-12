@@ -141,6 +141,9 @@ def param_to_field(param: Parameter, config: dict = None) -> forms.Field:
         kwargs["required"] = True
     elif param.default is None:
         kwargs["required"] = False
+        # need this so that empty values get passed through to function correctly!
+        if 'empty_value' in inspect.signature(field_type).parameters:
+            kwargs['empty_value'] = None
     else:
         kwargs["required"] = False
         kwargs.setdefault("initial", param.default)

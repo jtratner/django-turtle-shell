@@ -89,10 +89,10 @@ class ExpectedFormForExampleFunc(forms.Form):
     text_arg = forms.CharField(help_text="should have a big text field", required=True)
     # TODO: different widget
     text_arg_with_default = forms.CharField(initial="something", help_text="should have big text field with something filled in", required=False)
-    undocumented_arg = forms.CharField(required=False)
+    undocumented_arg = forms.CharField(required=False, empty_value=None)
     enum_auto = forms.TypedChoiceField(choices=COLOR_CHOICES, required=True, help_text="should be choices with key names", coerce=Color)
     enum_auto_not_required = forms.TypedChoiceField(choices=COLOR_CHOICES, required=False, coerce=Color,
-            help_text="choice field not required")
+            help_text="choice field not required", empty_value=None)
     enum_auto_with_default = forms.TypedChoiceField(choices=COLOR_CHOICES,
             initial=Color.green.value, required=False,
             coerce=Color, help_text="choice field with entry selected")
@@ -231,7 +231,6 @@ def test_defaults(db):
     resp = execute_gql_and_get_input_json(myfunc, "mutation { executeMyfunc(input: {}) { result { inputJson }}}")
     assert resp == {"a": True, "b": "whatever"}
 
-@pytest.mark.xfail
 def test_default_none(db):
 
     # defaults should be passed through
