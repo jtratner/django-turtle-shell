@@ -15,14 +15,14 @@ class _Registry:
     def get_registry(self):
         return _RegistrySingleton
 
-    def add(self, func, name=None):
+    def add(self, func, name=None, config=None):
         from .function_to_form import _Function
 
         # TODO: maybe _Function object should have overridden __new__ to keep it immutable?? :-/
         name = name or func.__name__
         func_obj = self.get(name)
         if not func_obj:
-            func_obj = _Function.from_function(func, name=name)
+            func_obj = _Function.from_function(func, name=name, config=config)
             self.func_name2func[func_obj.name] = func_obj
         else:
             if func_obj.func is not func:
@@ -68,3 +68,5 @@ class _Registry:
 
 _RegistrySingleton = _Registry()
 get_registry = _Registry.get_registry
+
+from .function_to_form import Text

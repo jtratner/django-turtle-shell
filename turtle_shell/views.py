@@ -32,7 +32,9 @@ class ExecutionDetailView(ExecutionViewMixin, DetailView):
     pass
 
 class ExecutionListView(ExecutionViewMixin, ListView):
-    pass
+    def get_queryset(self):
+        qs = super().get_queryset()
+        return qs.order_by("-created")
 
 class ExecutionCreateView(ExecutionViewMixin, CreateView):
 

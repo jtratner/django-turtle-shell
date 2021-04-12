@@ -16,6 +16,7 @@ REMAINING WORK:
 1. Ability to do asynchronous executions (this is basically all set up)
 2. Better UI on output and/or ability to have structured graphql output for nicer APIs
    Maybe some kind of output serializer? See end for some ideas.
+3. Help graphene-django release a version based on graphql-core so we can use newer graphene-pydantic :P
 
 How does it work?
 -----------------
@@ -49,16 +50,7 @@ Becomes this awesome form!
 
     <screenshot of form with fields, help text, etc>
 
-Why not FastAPI?
-----------------
-
-This is a great point! I didn't see it before I started.
-Using Django provides:
-
-0. FRONT END! -> key for non-technical users
-1. Easy ability to add in authentication/authorization (granted FastAPI has this)
-2. Literally didn't see it and we know django better
-
+Make your output pydantic models and get nicely structured GraphQL output AND nice tables of data on the page :)
 
 Overall gist
 ------------
@@ -157,7 +149,6 @@ What's missing from this idea
 
 - granular permissions (gotta think about nice API for this)
 - separate tables for different objects.
-- some kind of nicer serializer
 
 Using the library
 -----------------
@@ -250,12 +241,9 @@ who were not as command line savvy.
 2. Expose utility functions as forms for users
 
 
-How output serializers might look
----------------------------------
+Customizing output
+------------------
 
-1. One cool idea would just be to automatically convert to and from attrs classes using `cattrs` to customize output. (little more flexible in general)
-2. Could just return django models that get persisted (advantage is a bit easier to see old executions)
-3. Use pydantic to have some nice structure on output types :)
 
 Attrs classes
 ^^^^^^^^^^^^^
@@ -281,3 +269,25 @@ Better support for unmarshalling
 works with fast api as well
 
 https://pydantic-docs.helpmanual.io/usage/models/#data-conversion
+
+
+Why not FastAPI?
+----------------
+
+This is a great point! I didn't see it before I started.
+Using Django provides:
+
+0. FRONT END! -> key for non-technical users
+1. Persistence layer is a big deal - pretty easy on-ramp to handling 
+2. Easy ability to add in authentication/authorization (granted FastAPI has this)
+3. Literally didn't see it and we know django better
+
+See here for more details - https://github.com/tiangolo/fastapi
+
+
+Why not Django Ninja?
+---------------------
+
+This may actually be a better option - https://github.com/vitalik/django-ninja
+
+

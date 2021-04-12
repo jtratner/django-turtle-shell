@@ -1,7 +1,9 @@
 from typing import Type
 import inspect
+import turtle_shell
 
 from django import forms
+import json
 
 
 def compare_form_field(name, actual, expected):
@@ -55,3 +57,22 @@ def compare_forms(actual: Type[forms.Form], expected: Type[forms.Form]):
         print(repr(inspect.getdoc(expected)))
         # bare assert causes pytest rewrite, so we just add a bit around it
         raise AssertionError(f"Forms have different docstrings: {e}") from e
+
+
+def execute_gql(func, gql):
+    registry = turtle_shell.get_registry()
+    registry.clear()
+    registry.add(func)
+    result = registry.schema.execute(gql)
+    return result
+
+def execute_gql_and_get_input_json(func, gql):
+    """Helper to make it easy to test default setting"""
+    result = execute_gql(func, gql)
+    data = result.data
+    assert not result.errors
+    result_from_response = list(data.values())[0]["result"]
+    assert result_from_response
+    return json.loads(result_from_response["inputJson"])
+    # data = json.loads(result["data"]["result"]["inputJson"])
+    # return data

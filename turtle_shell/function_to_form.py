@@ -22,10 +22,16 @@ import pathlib
 
 from . import utils
 
+class Text(str):
+    """Wrapper class to be able to handle str types"""
+    pass
+
 
 type2field_type = {int: forms.IntegerField, str: forms.CharField, bool: forms.BooleanField,
-                   Optional[bool]: forms.NullBooleanField,
+                   Optional[bool]: forms.NullBooleanField, Text: forms.CharField,
                    pathlib.Path: forms.CharField, dict: forms.JSONField}
+
+type2widget = {Text: forms.Textarea()}
 
 @dataclass
 class _Function:
@@ -35,10 +41,10 @@ class _Function:
     doc: str
 
     @classmethod
-    def from_function(cls, func, *, name):
-        form_class = function_to_form(func, name=name)
+    def from_function(cls, func, *, name, config=None):
+        form_class = function_to_form(func, name=name, config=config)
         return cls(func=func, name=name, form_class=form_class,
-                doc=form_class.__doc__)
+                   doc=form_class.__doc__)
 
 
 def doc_mapping(str) -> Dict[str, str]:
@@ -173,9 +179,8 @@ def param_to_field(param: Parameter, config: dict = None) -> forms.Field:
 
     See function_to_form for config definition."""
     config = config or {}
-    all_types = dict(type2field_type)
-    all_types.update(config.get("types", {}))
-    widgets = config.get("widgets") or {}
+    all_types = {**type2field_type, **(config.get("types") or {})}
+    widgets = {**type2widget, **(config.get("widgets") or {})}
     field_type = None
     kwargs = {}
     kind = get_type_from_annotation(param)

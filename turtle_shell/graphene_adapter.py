@@ -10,6 +10,9 @@ from django import forms
 from . import utils
 # PATCH IT GOOD!
 import turtle_shell.graphene_adapter_jsonstring
+# TODO: (try/except here with pydantic)
+from turtle_shell import pydantic_adapter
+
 
 _seen_names: set = set()
 
@@ -100,15 +103,23 @@ def func_to_graphene_form_mutation(func_object):
     @classmethod
     def perform_mutate(cls, form, info):
         obj = form.save()
-        obj.execute()
+        all_results = obj.execute()
         obj.save()
+        kwargs = {"result": obj}
+        if hasattr(all_results, 'dict'):
+            for k, f in fields.items():
+                if k != 'result':
+                    kwargs[k] = all_results
+
         # TODO: make errors show up nicely
-        return cls(errors=[], result=obj)
+        return cls(errors=[], **kwargs)
 
     # TODO: figure out if name can be customized in class
     mutation_name = f'{form_class.__name__}Mutation'
-    DefaultOperationMutation = type(mutation_name, (DjangoFormMutation,), ({"Meta": Meta,
-        "perform_mutate": perform_mutate, "result": graphene.Field(ExecutionResult), "__doc__":
+    fields = {"result": graphene.Field(ExecutionResult)}
+    pydantic_adapter.maybe_add_pydantic_fields(func_object, fields)
+    DefaultOperationMutation = type(mutation_name, (DjangoFormMutation,), ({**fields, "Meta": Meta,
+        "perform_mutate": perform_mutate, "__doc__":
         f'Mutation form for {form_class.__name__}.\n{form_class.__doc__}',
         "mutate_and_get_payload": mutate_and_get_payload}))
     return DefaultOperationMutation

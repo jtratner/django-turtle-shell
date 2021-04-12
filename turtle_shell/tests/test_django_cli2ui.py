@@ -224,75 +224,6 @@ def test_custom_widgets():
     )
 
 
-def test_validators():
-    # something about fields failing validation
-    pass
-
-
-def execute_gql(func, gql):
-    registry = turtle_shell.get_registry()
-    registry.clear()
-    registry.add(func)
-    result = registry.schema.execute(gql)
-    return result
-
-def execute_gql_and_get_input_json(func, gql):
-    result = execute_gql(func, gql)
-    data = result.data
-    assert not result.errors
-    result_from_response = list(data.values())[0]["result"]
-    assert result_from_response
-    return json.loads(result_from_response["inputJson"])
-    # data = json.loads(result["data"]["result"]["inputJson"])
-    # return data
-
-def test_defaults(db):
-    # defaults should be passed through
-    def myfunc(a: bool=True, b: str="whatever"):
-        pass
-
-    resp = execute_gql_and_get_input_json(myfunc, "mutation { executeMyfunc(input: {}) { result { inputJson }}}")
-    assert resp == {"a": True, "b": "whatever"}
-
-def test_enum_preservation(db):
-    class ReadType(enum.Enum):
-        fastq = enum.auto()
-        bam = enum.auto()
-
-    def func(read_type: ReadType=ReadType.fastq):
-        return read_type
-
-    input_json = execute_gql_and_get_input_json(func, 'mutation { executeFunc(input: {readType: BAM}) { result { inputJson }}}')
-    assert input_json == {"read_type": utils.EnumRegistry.to_json_repr(ReadType.bam)}
-    assert input_json["read_type"]["__enum__"]["name"] == "bam"
-
-    input_json = execute_gql_and_get_input_json(func, "mutation { executeFunc(input: {}) { result { inputJson }}}")
-    assert input_json == {"read_type": utils.EnumRegistry.to_json_repr(ReadType.fastq)}
-    assert input_json["read_type"]["__enum__"]["name"] == "fastq"
-
-def test_default_none(db):
-
-    # defaults should be passed through
-    def myfunc(a: bool=None, b: str=None):
-        pass
-
-    resp = execute_gql_and_get_input_json(myfunc, "mutation { executeMyfunc(input: {}) { result { inputJson }}}")
-    # sadly None's get replaced :(
-    assert resp == {"a": None, "b": None}
-
-def test_error_with_no_default(db):
-
-    # no default should error
-    def my_func(*, a: bool, b: str):
-        pass
-    registry = turtle_shell.get_registry()
-    registry.clear()
-    registry.add(my_func)
-    gql = "mutation { executeMyfunc(input: {}) { result { inputJson }}}"
-    result = registry.schema.execute(gql)
-    assert result.errors
-
-
 @pytest.mark.parametrize(
     "parameter,exception_type,msg_regex",
     [
@@ -317,16 +248,3 @@ def test_coercer():
     assert Coercer(StringlyIntEnum)('1') == StringlyIntEnum('1')
     with pytest.raises(ValueError):
         Coercer(StringlyIntEnum)(1)
-
-
-def test_rendering_enum_with_mixed_type(db):
-    class MiscStringEnum(enum.Enum):
-        whatever = 'bobiswhatever'
-        mish = 'dish'
-        defa = 'default yeah'
-
-    def func(s: MiscStringEnum=MiscStringEnum.defa):
-        return s
-    input_json = execute_gql_and_get_input_json(func, "mutation { executeFunc(input: {}) { result { inputJson }}}")
-    input_json2 = execute_gql_and_get_input_json(func, "mutation { executeFunc(input: {s: DEFAULT_YEAH}) { result { inputJson }}}")
-    assert input_json == input_json2
