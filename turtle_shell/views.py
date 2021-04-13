@@ -2,10 +2,13 @@ from django.views.generic import DetailView
 from django.views.generic import ListView
 from django.views.generic import TemplateView
 from django.views.generic.edit import CreateView
+from django.contrib.auth.mixins import LoginRequiredMixin
+from graphene_django.views import GraphQLView
 from .models import ExecutionResult
 from dataclasses import dataclass
 from django.urls import path
 from django.contrib import messages
+from typing import Optional
 
 
 class ExecutionViewMixin:
@@ -49,10 +52,25 @@ class ExecutionCreateView(ExecutionViewMixin, CreateView):
         try:
             self.object.execute()
         except CaughtException as e:
-            messages.warning(self.request, str(e))
+            messages.warning(self.request, f"Error in Execution {self.object.pk}: {e}")
         else:
             messages.info(self.request, f"Completed execution for {self.object.pk}")
         return sup
+
+    def get_context_data(self, *a, **k):
+        ctx = super().get_context_data(*a, **k)
+        ctx['doc'] = self.form_class.__doc__
+        return ctx
+
+
+class LoginRequiredGraphQLView(LoginRequiredMixin, GraphQLView):
+    def handle_no_permission(self):
+        if self.request.user.is_authenticated:
+            raise PermissionDenied("No permission to access this resource.")
+        resp = HttpResponse(json.dumps({"error": "Invalid token"}), status=401)
+        resp["WWW-Authenticate"] = "Bearer"
+        return resp
+
 
 
 @dataclass
@@ -60,20 +78,23 @@ class Views:
     detail_view: object
     list_view: object
     create_view: object
+    graphql_view: Optional[object]
     func_name: str
 
     @classmethod
-    def from_function(cls, func: 'turtle_shell._Function'):
-        detail_view = type(f'{func.name}DetailView', (ExecutionDetailView,), ({"func_name": func.name}))
-        list_view = type(f'{func.name}ListView', (ExecutionListView,), ({"func_name": func.name}))
-        create_view = type(f'{func.name}CreateView', (ExecutionCreateView,), ({"func_name":
+    def from_function(cls, func: 'turtle_shell._Function', *, require_login: bool=True, schema=None):
+        bases = (LoginRequiredMixin,) if require_login else tuple()
+        detail_view = type(f'{func.name}DetailView', bases + (ExecutionDetailView,), ({"func_name": func.name}))
+        list_view = type(f'{func.name}ListView', bases + (ExecutionListView,), ({"func_name": func.name}))
+        create_view = type(f'{func.name}CreateView', bases + (ExecutionCreateView,), ({"func_name":
             func.name, "form_class": func.form_class}))
         return cls(detail_view=detail_view, list_view=list_view, create_view=create_view,
-                func_name=func.name)
+                func_name=func.name, graphql_view = (LoginRequiredGraphQLView.as_view(graphiql=True,
+                    schema=schema) if schema else None))
 
     def urls(self, *, list_template, detail_template, create_template):
         # TODO: namespace this again!
-        return [
+        ret = [
             path(f"{self.func_name}/", self.list_view.as_view(template_name=list_template),
                 name=f"list-{self.func_name}"),
             path(f"{self.func_name}/create/",
@@ -81,4 +102,6 @@ class Views:
             path(f"{self.func_name}/<uuid:pk>/",
                 self.detail_view.as_view(template_name=detail_template), name=f"detail-{self.func_name}")
         ]
+        ret.append(path("graphql", self.graphql_view))
+        return ret
 

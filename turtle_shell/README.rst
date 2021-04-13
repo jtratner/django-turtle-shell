@@ -244,29 +244,18 @@ who were not as command line savvy.
 Customizing output
 ------------------
 
+Custom widgets or forms
+^^^^^^^^^^^^^^^^^^^^^^^
 
-Attrs classes
-^^^^^^^^^^^^^
-
-Concept:
-    1. attr_to_graphene => convert attrs classes into nested graphene type. Handles resolving those fields from result
-    2. cattr.structure/cattr.unstructure to marshal to and from JSON
-
-Pros:
-
-* Easy to represent deeply nested contents
-* Do not need to save to DB
-
-Cons:
-
-* Reimplement a lot of the graphene django work :(
-
+``Registry.add()`` takes a ``config`` argument with it. You can set the
+``widgets`` key (to map types or parameter names to widgets) or the ``fields``
+key (to map types or parameter names to fields). You might use this to set your
+widget as a text area or use a custom placeholder!
 
 Pydantic classes
 ^^^^^^^^^^^^^^^^
 
-Better support for unmarshalling
-works with fast api as well
+If you set a Pydantic class as your output from a function, it'll be rendered nicely! Try it out :)
 
 https://pydantic-docs.helpmanual.io/usage/models/#data-conversion
 

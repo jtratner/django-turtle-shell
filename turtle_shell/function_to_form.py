@@ -179,7 +179,7 @@ def param_to_field(param: Parameter, config: dict = None) -> forms.Field:
 
     See function_to_form for config definition."""
     config = config or {}
-    all_types = {**type2field_type, **(config.get("types") or {})}
+    all_types = {**type2field_type, **(config.get("fields") or {})}
     widgets = {**type2widget, **(config.get("widgets") or {})}
     field_type = None
     kwargs = {}

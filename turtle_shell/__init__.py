@@ -47,7 +47,7 @@ class _Registry:
         from . import views
         urls = [path("", self.summary_view, name="overview")]
         for func in self.func_name2func.values():
-            urls.extend(views.Views.from_function(func).urls(list_template=list_template,
+            urls.extend(views.Views.from_function(func, schema=get_registry().schema).urls(list_template=list_template,
                 detail_template=detail_template, create_template=create_template))
         return _Router(urls=(urls, "turtle_shell"))
 
