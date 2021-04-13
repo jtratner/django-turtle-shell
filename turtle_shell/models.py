@@ -5,7 +5,8 @@ from turtle_shell import utils
 import uuid
 import cattr
 import json
-
+import logging
+logger = logging.getLogger(__name__)
 
 class CaughtException(Exception):
     """An exception that was caught and saved. Generally don't need to rollback transaction with
@@ -36,6 +37,7 @@ class ExecutionResult(models.Model):
     error_json = models.JSONField(
         default=dict, null=True, encoder=utils.EnumAwareEncoder, decoder=utils.EnumAwareDecoder
     )
+    traceback = models.TextField(default="")
 
     class ExecutionStatus(models.TextChoices):
         CREATED = "CREATED", "Created"
@@ -64,8 +66,12 @@ class ExecutionResult(models.Model):
             # TODO: redo conversion another time!
             result = original_result = func(**self.input_json)
         except Exception as e:
+            import traceback
+            logger.error(f"Failed to execute {self.func_name} :(: {type(e).__name__}:{e}",
+                         exc_info=True)
             # TODO: catch integrity error separately
             self.error_json = {"type": type(e).__name__, "message": str(e)}
+            self.traceback = "".join(traceback.format_exc())
             self.status = self.ExecutionStatus.ERRORED
             self.save()
             raise CaughtException(f"Failed on {self.func_name} ({type(e).__name__})", e) from e

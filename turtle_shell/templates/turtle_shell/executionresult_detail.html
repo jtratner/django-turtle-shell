@@ -22,6 +22,7 @@
 {% include "turtle_shell/executionresult_summaryrow.html" with key="Input" data=object.input_json %}
 {% include "turtle_shell/executionresult_summaryrow.html" with key="Output" data=object.output_json %}
 {% include "turtle_shell/executionresult_summaryrow.html" with key="Error" data=object.error_json %}
+{% include "turtle_shell/executionresult_summaryrow.html" with key="Traceback" data=object.traceback skip_pprint=True %}
 {% load tz %}
 {% get_current_timezone as TIME_ZONE %}
 <tr><th scope="col">User</th><td>{{object.user}}</td></tr>

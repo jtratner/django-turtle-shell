@@ -115,9 +115,14 @@ def func_to_graphene_form_mutation(func_object):
             for k, f in fields.items():
                 if k != "result":
                     kwargs[k] = all_results
+        # TODO: nicer structure
+        if obj.error_json:
+            message = obj.error_json.get("message") or "Hit error in execution :("
+            errors = [{"message": message, "extensions": obj.error_json}]
+        else:
+            errors = []
 
-        # TODO: make errors show up nicely
-        return cls(errors=[], **kwargs)
+        return cls(errors=errors, **kwargs)
 
     # TODO: figure out if name can be customized in class
     mutation_name = f"{form_class.__name__}Mutation"

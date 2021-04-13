@@ -82,4 +82,4 @@ def get_pydantic_object(execution_result):
         try:
             return ret_type.parse_obj(execution_result.output_json)
         except Exception as e:
-            logger.warn(f"Hit exception unparsing {type(e).__name__}{e}", stack_info=True)
+            logger.warn(f"Hit exception unparsing {type(e).__name__}{e}", exc_info=True)

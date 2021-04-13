@@ -14,8 +14,6 @@ Motivation
 REMAINING WORK:
 
 1. Ability to do asynchronous executions (this is basically all set up)
-2. Better UI on output and/or ability to have structured graphql output for nicer APIs
-   Maybe some kind of output serializer? See end for some ideas.
 3. Help graphene-django release a version based on graphql-core so we can use newer graphene-pydantic :P
 
 How does it work?
@@ -51,6 +49,8 @@ Becomes this awesome form!
     <screenshot of form with fields, help text, etc>
 
 Make your output pydantic models and get nicely structured GraphQL output AND nice tables of data on the page :)
+
+If you specify pydantic models as output, you'll even get a nice HTML rendering + structured types in GraphQL!
 
 Overall gist
 ------------
