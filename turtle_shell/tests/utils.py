@@ -35,7 +35,7 @@ def compare_forms(actual: Type[forms.Form], expected: Type[forms.Form]):
     """
     actual_fields = actual.declared_fields
     expected_fields = expected.declared_fields
-    excluded_keys = {'_func_name', '_parameter_name'}
+    excluded_keys = {"_func_name", "_parameter_name"}
     shared_keys = list(set(actual_fields.keys()) & set(expected_fields.keys()) - excluded_keys)
     extra_keys = list(set(actual_fields.keys()) - set(expected_fields.keys()) - excluded_keys)
     missing_keys = list(set(expected_fields.keys()) - set(actual_fields.keys()) - excluded_keys)
@@ -65,6 +65,7 @@ def execute_gql(func, gql):
     registry.add(func)
     result = registry.schema.execute(gql)
     return result
+
 
 def execute_gql_and_get_input_json(func, gql):
     """Helper to make it easy to test default setting"""

@@ -6,18 +6,18 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('turtle_shell', '0003_auto_20210411_1104'),
+        ("turtle_shell", "0003_auto_20210411_1104"),
     ]
 
     operations = [
         migrations.AlterField(
-            model_name='executionresult',
-            name='error_json',
+            model_name="executionresult",
+            name="error_json",
             field=models.JSONField(default=dict, null=True),
         ),
         migrations.AlterField(
-            model_name='executionresult',
-            name='output_json',
+            model_name="executionresult",
+            name="output_json",
             field=models.JSONField(default=dict, null=True),
         ),
     ]

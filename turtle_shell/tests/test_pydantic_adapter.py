@@ -5,13 +5,16 @@ from turtle_shell import pydantic_adapter
 from .utils import execute_gql, execute_gql_and_get_input_json
 import pytest
 
+
 class Status(enum.Enum):
-    complete = 'complete'
-    bad = 'bad'
+    complete = "complete"
+    bad = "bad"
+
 
 class NestedStructure(BaseModel):
     status: Status
     thing: str
+
 
 class StructuredOutput(BaseModel):
     value: str
@@ -24,18 +27,23 @@ def test_get_nested_models():
     lst = pydantic_adapter.get_pydantic_models_in_order(NestedStructure)
     assert lst == [NestedStructure]
 
+
 def test_structured_output(db):
-
-
     def myfunc(a: str) -> StructuredOutput:
         return StructuredOutput(
             value=a,
-            nested_things=[NestedStructure(status=Status.bad, thing='other'),
-                NestedStructure(status=Status.complete, thing='other2')]
+            nested_things=[
+                NestedStructure(status=Status.bad, thing="other"),
+                NestedStructure(status=Status.complete, thing="other2"),
+            ],
         )
-    result = execute_gql(myfunc, 'mutation { executeMyfunc(input:{a: "whatever"}) { structuredOutput { nested_things { status }}}}')
+
+    result = execute_gql(
+        myfunc,
+        'mutation { executeMyfunc(input:{a: "whatever"}) { structuredOutput { nested_things { status }}}}',
+    )
     assert not result.errors
-    nested = result.data['executeMyfunc']['output']['nested_things']
+    nested = result.data["executeMyfunc"]["output"]["nested_things"]
     assert list(sorted(nested)) == list(sorted([{"status": "bad"}, {"status": "complete"}]))
 
 
@@ -51,14 +59,20 @@ def test_duplicate_enum_reference(db):
         return StructuredDuplicatingStatus(
             status=Status.complete,
             value=a,
-            nested_things=[NestedStructure(status=Status.bad, thing='other'),
-                NestedStructure(status=Status.complete, thing='other2')]
+            nested_things=[
+                NestedStructure(status=Status.bad, thing="other"),
+                NestedStructure(status=Status.complete, thing="other2"),
+            ],
         )
 
-    result = execute_gql(myfunc, 'mutation { executeMyfunc(input:{a: "whatever"}) { structuredDuplicatingStatus { nested_things { status }}}}')
+    result = execute_gql(
+        myfunc,
+        'mutation { executeMyfunc(input:{a: "whatever"}) { structuredDuplicatingStatus { nested_things { status }}}}',
+    )
     assert not result.errors
-    nested = result.data['executeMyfunc']['output']['nested_things']
+    nested = result.data["executeMyfunc"]["output"]["nested_things"]
     assert list(sorted(nested)) == list(sorted([{"status": "bad"}, {"status": "complete"}]))
+
 
 @pytest.mark.xfail
 def test_structured_input(db):
@@ -70,11 +84,13 @@ def test_structured_input(db):
         b: List[int]
         nested: List[NestedInput]
 
-    inpt1 = StructuredInput(a="a", b=[1, 2,3],
-    nested=[NestedInput(text="whatever")])
-    def myfunc(s: StructuredInput=inpt1) -> str:
+    inpt1 = StructuredInput(a="a", b=[1, 2, 3], nested=[NestedInput(text="whatever")])
+
+    def myfunc(s: StructuredInput = inpt1) -> str:
         return "apples"
 
-    inpt = execute_gql_and_get_input_json(myfunc, "mutation { executeMyfunc(input: {}) { result { inputJson}}}")
+    inpt = execute_gql_and_get_input_json(
+        myfunc, "mutation { executeMyfunc(input: {}) { result { inputJson}}}"
+    )
     actual = StructuredInput.parse_obj(inpt["s"])
     assert actual == inpt1

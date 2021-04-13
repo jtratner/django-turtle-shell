@@ -9,23 +9,25 @@ class Migration(migrations.Migration):
 
     dependencies = [
         migrations.swappable_dependency(settings.AUTH_USER_MODEL),
-        ('turtle_shell', '0002_auto_20210411_1045'),
+        ("turtle_shell", "0002_auto_20210411_1045"),
     ]
 
     operations = [
         migrations.AddField(
-            model_name='executionresult',
-            name='user',
-            field=models.ForeignKey(null=True, on_delete=django.db.models.deletion.PROTECT, to=settings.AUTH_USER_MODEL),
+            model_name="executionresult",
+            name="user",
+            field=models.ForeignKey(
+                null=True, on_delete=django.db.models.deletion.PROTECT, to=settings.AUTH_USER_MODEL
+            ),
         ),
         migrations.AlterField(
-            model_name='executionresult',
-            name='error_json',
+            model_name="executionresult",
+            name="error_json",
             field=models.JSONField(default=dict),
         ),
         migrations.AlterField(
-            model_name='executionresult',
-            name='output_json',
+            model_name="executionresult",
+            name="output_json",
             field=models.JSONField(default=dict),
         ),
     ]

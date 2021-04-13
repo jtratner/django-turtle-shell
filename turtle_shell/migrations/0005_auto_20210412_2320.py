@@ -7,23 +7,36 @@ import turtle_shell.utils
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('turtle_shell', '0004_auto_20210411_1223'),
+        ("turtle_shell", "0004_auto_20210411_1223"),
     ]
 
     operations = [
         migrations.AlterField(
-            model_name='executionresult',
-            name='error_json',
-            field=models.JSONField(decoder=turtle_shell.utils.EnumAwareDecoder, default=dict, encoder=turtle_shell.utils.EnumAwareEncoder, null=True),
+            model_name="executionresult",
+            name="error_json",
+            field=models.JSONField(
+                decoder=turtle_shell.utils.EnumAwareDecoder,
+                default=dict,
+                encoder=turtle_shell.utils.EnumAwareEncoder,
+                null=True,
+            ),
         ),
         migrations.AlterField(
-            model_name='executionresult',
-            name='input_json',
-            field=models.JSONField(decoder=turtle_shell.utils.EnumAwareDecoder, encoder=turtle_shell.utils.EnumAwareEncoder),
+            model_name="executionresult",
+            name="input_json",
+            field=models.JSONField(
+                decoder=turtle_shell.utils.EnumAwareDecoder,
+                encoder=turtle_shell.utils.EnumAwareEncoder,
+            ),
         ),
         migrations.AlterField(
-            model_name='executionresult',
-            name='output_json',
-            field=models.JSONField(decoder=turtle_shell.utils.EnumAwareDecoder, default=dict, encoder=turtle_shell.utils.EnumAwareEncoder, null=True),
+            model_name="executionresult",
+            name="output_json",
+            field=models.JSONField(
+                decoder=turtle_shell.utils.EnumAwareDecoder,
+                default=dict,
+                encoder=turtle_shell.utils.EnumAwareEncoder,
+                null=True,
+            ),
         ),
     ]

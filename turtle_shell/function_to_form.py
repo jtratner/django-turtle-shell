@@ -22,16 +22,25 @@ import pathlib
 
 from . import utils
 
+
 class Text(str):
     """Wrapper class to be able to handle str types"""
+
     pass
 
 
-type2field_type = {int: forms.IntegerField, str: forms.CharField, bool: forms.BooleanField,
-                   Optional[bool]: forms.NullBooleanField, Text: forms.CharField,
-                   pathlib.Path: forms.CharField, dict: forms.JSONField}
+type2field_type = {
+    int: forms.IntegerField,
+    str: forms.CharField,
+    bool: forms.BooleanField,
+    Optional[bool]: forms.NullBooleanField,
+    Text: forms.CharField,
+    pathlib.Path: forms.CharField,
+    dict: forms.JSONField,
+}
 
 type2widget = {Text: forms.Textarea()}
+
 
 @dataclass
 class _Function:
@@ -43,15 +52,14 @@ class _Function:
     @classmethod
     def from_function(cls, func, *, name, config=None):
         form_class = function_to_form(func, name=name, config=config)
-        return cls(func=func, name=name, form_class=form_class,
-                   doc=form_class.__doc__)
+        return cls(func=func, name=name, form_class=form_class, doc=form_class.__doc__)
 
 
 def doc_mapping(str) -> Dict[str, str]:
     return {}
 
 
-def function_to_form(func, *, config: dict = None, name: str=None) -> Type[forms.Form]:
+def function_to_form(func, *, config: dict = None, name: str = None) -> Type[forms.Form]:
     """Convert a function to a Django Form.
 
     Args:
@@ -79,10 +87,11 @@ def function_to_form(func, *, config: dict = None, name: str=None) -> Type[forms
                         defaults[parameter.name] = potential_default
                         break
                 else:
-                    raise ValueError(f"Cannot figure out how to assign default for {parameter.name}: {parameter.default}")
+                    raise ValueError(
+                        f"Cannot figure out how to assign default for {parameter.name}: {parameter.default}"
+                    )
     fields["__doc__"] = re.sub("\n+", "\n", _parse_docstring(inspect.getdoc(func)).text)
     form_name = "".join(part.capitalize() for part in func.__name__.split("_"))
-
 
     class BaseForm(forms.Form):
         _func = func
@@ -95,7 +104,7 @@ def function_to_form(func, *, config: dict = None, name: str=None) -> Type[forms
             super().__init__(*a, **k)
             self.user = user
             self.helper = FormHelper(self)
-            self.helper.add_input(Submit('submit', 'Execute!'))
+            self.helper.add_input(Submit("submit", "Execute!"))
 
         def execute_function(self):
             # TODO: reconvert back to enum type! :(
@@ -103,12 +112,10 @@ def function_to_form(func, *, config: dict = None, name: str=None) -> Type[forms
 
         def save(self):
             from .models import ExecutionResult
-            obj = ExecutionResult(func_name=name,
-                                  input_json=self.cleaned_data,
-                                  user=self.user)
+
+            obj = ExecutionResult(func_name=name, input_json=self.cleaned_data, user=self.user)
             obj.save()
             return obj
-
 
     return type(form_name, (BaseForm,), fields)
 
@@ -129,6 +136,7 @@ def get_type_from_annotation(param: Parameter):
 @dataclass
 class Coercer:
     """Wrapper so that we handle implicit string conversion of enum types :("""
+
     enum_type: object
     by_attribute: bool = False
 
@@ -140,9 +148,11 @@ class Coercer:
             return resp
         except Exception as e:
             import traceback
+
             print(f"FAILED TO COERCE {repr(value)}({value})")
             traceback.print_exc()
             raise
+
     def _call(self, value):
         if value and isinstance(value, self.enum_type):
             print("ALREADY INSTANCE")
@@ -157,6 +167,7 @@ class Coercer:
             return resp
         except ValueError as e:
             import traceback
+
             traceback.print_exc()
             try:
                 print("BY int coerced __call__")
@@ -199,28 +210,33 @@ def param_to_field(param: Parameter, config: dict = None) -> forms.Field:
     if not field_type:
         raise ValueError(f"Field {param.name}: Unknown field type: {param.annotation}")
     # do not overwrite kwargs if already specified
-    kwargs =  {**extra_kwargs(field_type, param), **kwargs}
+    kwargs = {**extra_kwargs(field_type, param), **kwargs}
     if field_type == forms.BooleanField and param.default is None:
         field_type = forms.NullBooleanField
 
     widget = get_for_param_by_type(widgets, param=param, kind=kind)
     if widget:
-        kwargs['widget'] = widget
+        kwargs["widget"] = widget
     return field_type(**kwargs)
 
 
 def make_enum_kwargs(kind, param):
     kwargs = {}
     if all(isinstance(member.value, int) for member in kind):
-        kwargs["choices"] = TextChoices(f'{kind.__name__}Enum', {member.name: (member.name, member.name) for
-            member in kind}).choices
+        kwargs["choices"] = TextChoices(
+            f"{kind.__name__}Enum", {member.name: (member.name, member.name) for member in kind}
+        ).choices
         kwargs["coerce"] = Coercer(kind, by_attribute=True)
     else:
         # we set up all the kinds of entries to make it a bit easier to do the names and the
         # values...
-        kwargs["choices"] = TextChoices(f'{kind.__name__}Enum', dict([(member.name, (str(member.value),
-            member.name)) for member in kind] + [(str(member.value), (member.name, member.name)) for
-                member in kind])).choices
+        kwargs["choices"] = TextChoices(
+            f"{kind.__name__}Enum",
+            dict(
+                [(member.name, (str(member.value), member.name)) for member in kind]
+                + [(str(member.value), (member.name, member.name)) for member in kind]
+            ),
+        ).choices
         kwargs["coerce"] = Coercer(kind)
     # coerce back
     if isinstance(param.default, kind):
@@ -242,6 +258,7 @@ def get_for_param_by_type(dct, *, param, kind):
         if inspect.isclass(k) and issubclass(kind, k) or k == kind:
             return v
 
+
 def extra_kwargs(field_type, param):
     kwargs = {}
     if param.default is Parameter.empty:
@@ -249,13 +266,11 @@ def extra_kwargs(field_type, param):
     elif param.default is None:
         kwargs["required"] = False
         # need this so that empty values get passed through to function correctly!
-        if 'empty_value' in inspect.signature(field_type).parameters:
-            kwargs['empty_value'] = None
+        if "empty_value" in inspect.signature(field_type).parameters:
+            kwargs["empty_value"] = None
     else:
         kwargs["required"] = False
         kwargs.setdefault("initial", param.default)
     if param.doc:
         kwargs["help_text"] = param.doc
     return kwargs
-
-

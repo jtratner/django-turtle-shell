@@ -79,37 +79,69 @@ def example_func(
 
 class ExpectedFormForExampleFunc(forms.Form):
     """\nFirst line of text content should be there. \n \n \n \n \n \n \n \n \n \n \n \n \n \n \n \nLater lines of content here."""
+
     # extra whitespace cuz of weird docstring parsing from defopt
     int_arg = forms.IntegerField(help_text="Browser native int field", required=True)
-    int_arg_with_default = forms.IntegerField(initial=5, help_text="Browser native int field with a default", required=False)
-    bool_arg_default_true = forms.BooleanField(initial=True, help_text="should be checked checkbox", required=False)
-    bool_arg_default_false = forms.BooleanField(initial=False, help_text="should be unchecked checkbox", required=False)
+    int_arg_with_default = forms.IntegerField(
+        initial=5, help_text="Browser native int field with a default", required=False
+    )
+    bool_arg_default_true = forms.BooleanField(
+        initial=True, help_text="should be checked checkbox", required=False
+    )
+    bool_arg_default_false = forms.BooleanField(
+        initial=False, help_text="should be unchecked checkbox", required=False
+    )
     bool_arg_no_default = forms.BooleanField(help_text="Bool arg with a dropdown", required=True)
     str_arg = forms.CharField(help_text="should be small field", required=True)
-    str_arg_with_default = forms.CharField(initial="whatever", help_text="should be small field with text in it", required=False)
+    str_arg_with_default = forms.CharField(
+        initial="whatever", help_text="should be small field with text in it", required=False
+    )
     # TODO: different widget
     text_arg = forms.CharField(help_text="should have a big text field", required=True)
     # TODO: different widget
-    text_arg_with_default = forms.CharField(initial="something", help_text="should have big text field with something filled in", required=False)
+    text_arg_with_default = forms.CharField(
+        initial="something",
+        help_text="should have big text field with something filled in",
+        required=False,
+    )
     undocumented_arg = forms.CharField(required=False, empty_value=None)
-    enum_auto = forms.TypedChoiceField(choices=COLOR_CHOICES, required=True, help_text="should be choices with key names", coerce=Coercer(Color, by_attribute=True))
-    enum_auto_not_required = forms.TypedChoiceField(choices=COLOR_CHOICES, required=False, coerce=Coercer(Color, by_attribute=True),
-            help_text="choice field not required", empty_value=None)
-    enum_auto_with_default = forms.TypedChoiceField(choices=COLOR_CHOICES,
-            initial=Color.green.value, required=False,
-            coerce=Coercer(Color, by_attribute=True), help_text="choice field with entry selected")
-    enum_str = forms.TypedChoiceField(choices=[("is_apple", "is_apple"), ("is_banana",
-        "is_banana")], required=True, coerce=Coercer(Flag), help_text="should be choices with string values")
-    enum_str_with_default = forms.TypedChoiceField(choices=[("is_apple", "is_apple"), ("is_banana",
-        "is_banana")], required=False, initial=Flag.is_apple.value,
-            coerce=Coercer(Flag))
+    enum_auto = forms.TypedChoiceField(
+        choices=COLOR_CHOICES,
+        required=True,
+        help_text="should be choices with key names",
+        coerce=Coercer(Color, by_attribute=True),
+    )
+    enum_auto_not_required = forms.TypedChoiceField(
+        choices=COLOR_CHOICES,
+        required=False,
+        coerce=Coercer(Color, by_attribute=True),
+        help_text="choice field not required",
+        empty_value=None,
+    )
+    enum_auto_with_default = forms.TypedChoiceField(
+        choices=COLOR_CHOICES,
+        initial=Color.green.value,
+        required=False,
+        coerce=Coercer(Color, by_attribute=True),
+        help_text="choice field with entry selected",
+    )
+    enum_str = forms.TypedChoiceField(
+        choices=[("is_apple", "is_apple"), ("is_banana", "is_banana")],
+        required=True,
+        coerce=Coercer(Flag),
+        help_text="should be choices with string values",
+    )
+    enum_str_with_default = forms.TypedChoiceField(
+        choices=[("is_apple", "is_apple"), ("is_banana", "is_banana")],
+        required=False,
+        initial=Flag.is_apple.value,
+        coerce=Coercer(Flag),
+    )
 
 
 def test_compare_complex_example(db):
     actual = function_to_form(example_func)
     compare_forms(actual, ExpectedFormForExampleFunc)
-
-
 
 
 def _make_parameter(name, annotation, doc="", **kwargs):
@@ -149,7 +181,7 @@ def _make_parameter(name, annotation, doc="", **kwargs):
         ),
         (
             _make_parameter("bool_default_none", bool, "some doc", default=None),
-            forms.NullBooleanField(required=False, help_text="some doc")
+            forms.NullBooleanField(required=False, help_text="some doc"),
         ),
         (
             _make_parameter("bool_falsey", bool, "some doc", default=False),
@@ -165,11 +197,11 @@ def _make_parameter(name, annotation, doc="", **kwargs):
         ),
         (
             _make_parameter("optional_bool", Optional[bool], default=True),
-            forms.NullBooleanField(initial=True, required=False)
+            forms.NullBooleanField(initial=True, required=False),
         ),
         (
             _make_parameter("optional_bool", Optional[bool], default=None),
-            forms.NullBooleanField(initial=None, required=False)
+            forms.NullBooleanField(initial=None, required=False),
         ),
     ],
     ids=lambda x: x.name if hasattr(x, "name") else x,
@@ -216,7 +248,8 @@ def test_custom_widgets():
     compare_form_field(
         "str_large_text_field",
         param_to_field(
-            param, {"widgets": {Text: text_input_widget}, "types": {Text: forms.CharField}},
+            param,
+            {"widgets": {Text: text_input_widget}, "types": {Text: forms.CharField}},
         ),
         forms.CharField(
             widget=text_input_widget, help_text="some doc", initial="", required=False
@@ -227,8 +260,13 @@ def test_custom_widgets():
 @pytest.mark.parametrize(
     "parameter,exception_type,msg_regex",
     [
-        (_make_parameter("union_type", typing.Union[bool, str]), ValueError, "type class.*not supported"),
-    ])
+        (
+            _make_parameter("union_type", typing.Union[bool, str]),
+            ValueError,
+            "type class.*not supported",
+        ),
+    ],
+)
 def test_exceptions(parameter, exception_type, msg_regex):
     with pytest.raises(exception_type, match=msg_regex):
         param_to_field(parameter)
@@ -240,11 +278,11 @@ def test_coercer():
         another = enum.auto()
 
     class StringlyIntEnum(enum.Enum):
-        val1 = '1'
-        val2 = '2'
+        val1 = "1"
+        val2 = "2"
 
     assert Coercer(AutoEnum)(AutoEnum.whatever.value) == AutoEnum.whatever
     assert Coercer(AutoEnum)(str(AutoEnum.whatever.value)) == AutoEnum.whatever
-    assert Coercer(StringlyIntEnum)('1') == StringlyIntEnum('1')
+    assert Coercer(StringlyIntEnum)("1") == StringlyIntEnum("1")
     with pytest.raises(ValueError):
         Coercer(StringlyIntEnum)(1)

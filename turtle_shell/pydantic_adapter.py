@@ -13,9 +13,10 @@ import logging
 
 logger = logging.getLogger(__name__)
 
+
 def is_pydantic(func):
     ret_type = inspect.signature(func).return_annotation
-    if args:= typing.get_args(ret_type):
+    if args := typing.get_args(ret_type):
         ret_type = args[0]
     return inspect.isclass(ret_type) and issubclass(ret_type, BaseModel) and ret_type
 
@@ -38,6 +39,7 @@ def get_pydantic_models_in_order(model):
             seen_classes.add(elem)
     return deduped
 
+
 def get_object_type(model) -> PydanticObjectType:
     """Construct object types in order, using caching etc"""
     reg = registry.get_global_registry()
@@ -47,11 +49,15 @@ def get_object_type(model) -> PydanticObjectType:
         if reg.get_type_for_model(klass):
             continue
 
-        pydantic_oject = type(klass.__name__, (PydanticObjectType,), {"Meta": type("Meta", (object,),
-            {"model": klass})})
+        pydantic_oject = type(
+            klass.__name__,
+            (PydanticObjectType,),
+            {"Meta": type("Meta", (object,), {"model": klass})},
+        )
         print(f"CREATED: {klass.__name__}")
         assert reg.get_type_for_model(klass), klass
     return reg.get_type_for_model(model)
+
 
 def maybe_add_pydantic_fields(func_object, fields):
     if not (pydantic_class := is_pydantic(func_object.func)):
@@ -62,6 +68,7 @@ def maybe_add_pydantic_fields(func_object, fields):
     root_object = get_object_type(pydantic_class)
     fields[obj_name[0].lower() + obj_name[1:]] = graphene.Field(root_object)
     print(f"Added field {obj_name}")
+
 
 def maybe_convert_pydantic_model(result):
     if isinstance(result, BaseModel):

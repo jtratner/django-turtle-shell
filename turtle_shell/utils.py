@@ -3,6 +3,7 @@ import enum
 from collections import defaultdict
 from django.core.serializers.json import DjangoJSONEncoder
 
+
 class EnumRegistry:
     # URP - global! :(
     _registered_enums = defaultdict(dict)
@@ -21,9 +22,17 @@ class EnumRegistry:
     @classmethod
     def to_json_repr(cls, enum_member):
         if not cls.has_enum(type(enum_member)):
-            raise TypeError(f"Enum type {type(enum_member)} has not been registered and can't be serialized :(")
+            raise TypeError(
+                f"Enum type {type(enum_member)} has not been registered and can't be serialized :("
+            )
         enum_class = type(enum_member)
-        return {"__enum__": {"__type__": [enum_class.__module__, enum_class.__qualname__], "name": enum_member.name, "value": enum_member.value}}
+        return {
+            "__enum__": {
+                "__type__": [enum_class.__module__, enum_class.__qualname__],
+                "name": enum_member.name,
+                "value": enum_member.value,
+            }
+        }
 
     @classmethod
     def from_json_repr(cls, json_obj):
@@ -41,7 +50,7 @@ class EnumRegistry:
 
     @classmethod
     def object_hook(cls, dct):
-        if '__enum__' not in dct:
+        if "__enum__" not in dct:
             return dct
         return cls.from_json_repr(dct)
 
@@ -53,9 +62,10 @@ class EnumAwareEncoder(DjangoJSONEncoder):
         else:
             super().default(o, **k)
 
+
 class EnumAwareDecoder(json.JSONDecoder):
     def __init__(self, *a, **k):
-        k.setdefault('object_hook', self.object_hook)
+        k.setdefault("object_hook", self.object_hook)
         super().__init__(*a, **k)
 
     def object_hook(self, dct):

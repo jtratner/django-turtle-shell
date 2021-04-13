@@ -8,8 +8,10 @@ from . import models
 from graphene_django.forms import converter as graphene_django_converter
 from django import forms
 from . import utils
+
 # PATCH IT GOOD!
 import turtle_shell.graphene_adapter_jsonstring
+
 # TODO: (try/except here with pydantic)
 from turtle_shell import pydantic_adapter
 
@@ -42,19 +44,19 @@ _seen_names: set = set()
 def convert_form_field_to_choice(field):
     # TODO: this should really be ported back to graphene django
     from graphene_django.converter import convert_choice_field_to_enum
-    name = full_name = f'{field._func_name}{field._parameter_name}'
+
+    name = full_name = f"{field._func_name}{field._parameter_name}"
     index = 0
     while full_name in _seen_names:
         index += 1
-        full_name = f'{name}{index}'
+        full_name = f"{name}{index}"
     EnumCls = convert_choice_field_to_enum(field, name=full_name)
     print(EnumCls, getattr(EnumCls, "BAM", None))
-    converted = EnumCls(
-        description=field.help_text, required=field.required
-    )
+    converted = EnumCls(description=field.help_text, required=field.required)
     _seen_names.add(full_name)
 
     return converted
+
 
 class ExecutionResult(DjangoObjectType):
     class Meta:
@@ -89,7 +91,9 @@ def func_to_graphene_form_mutation(func_object):
     def mutate_and_get_payload(cls, root, info, **input):
         """Set defaults from function in place!"""
         input = {**defaults, **input}
-        print(f"MUTATE GET PAYLOAD {input} {repr(input.get('read_type'))} {type(input.get('read_type'))}")
+        print(
+            f"MUTATE GET PAYLOAD {input} {repr(input.get('read_type'))} {type(input.get('read_type'))}"
+        )
         form = cls.get_form(root, info, **input)
         if not form.is_valid():
             print(form.errors)
@@ -97,6 +101,7 @@ def func_to_graphene_form_mutation(func_object):
             return super(DefaultOperationMutation, cls).mutate_and_get_payload(root, info, **input)
         except Exception as e:
             import traceback
+
             traceback.print_exc()
             raise
 
@@ -106,23 +111,33 @@ def func_to_graphene_form_mutation(func_object):
         all_results = obj.execute()
         obj.save()
         kwargs = {"result": obj}
-        if hasattr(all_results, 'dict'):
+        if hasattr(all_results, "dict"):
             for k, f in fields.items():
-                if k != 'result':
+                if k != "result":
                     kwargs[k] = all_results
 
         # TODO: make errors show up nicely
         return cls(errors=[], **kwargs)
 
     # TODO: figure out if name can be customized in class
-    mutation_name = f'{form_class.__name__}Mutation'
+    mutation_name = f"{form_class.__name__}Mutation"
     fields = {"result": graphene.Field(ExecutionResult)}
     pydantic_adapter.maybe_add_pydantic_fields(func_object, fields)
-    DefaultOperationMutation = type(mutation_name, (DjangoFormMutation,), ({**fields, "Meta": Meta,
-        "perform_mutate": perform_mutate, "__doc__":
-        f'Mutation form for {form_class.__name__}.\n{form_class.__doc__}',
-        "mutate_and_get_payload": mutate_and_get_payload}))
+    DefaultOperationMutation = type(
+        mutation_name,
+        (DjangoFormMutation,),
+        (
+            {
+                **fields,
+                "Meta": Meta,
+                "perform_mutate": perform_mutate,
+                "__doc__": f"Mutation form for {form_class.__name__}.\n{form_class.__doc__}",
+                "mutate_and_get_payload": mutate_and_get_payload,
+            }
+        ),
+    )
     return DefaultOperationMutation
+
 
 def schema_for_registry(registry):
     # TODO: make this more flexible!
@@ -135,10 +150,10 @@ def schema_for_registry(registry):
                 return models.ExecutionResult.objects.get(pk=uuid)
             except models.ExecutionResult.DoesNotExist:
                 pass
+
     mutation_fields = {}
     for func_obj in registry.func_name2func.values():
         mutation = func_to_graphene_form_mutation(func_obj)
-        mutation_fields[f'execute_{func_obj.name}'] = mutation.Field()
+        mutation_fields[f"execute_{func_obj.name}"] = mutation.Field()
     Mutation = type("Mutation", (graphene.ObjectType,), mutation_fields)
     return graphene.Schema(query=Query, mutation=Mutation)
-

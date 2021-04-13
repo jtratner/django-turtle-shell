@@ -1,8 +1,10 @@
 from dataclasses import dataclass
 
+
 @dataclass
 class _Router:
     urls: list
+
 
 class _Registry:
     func_name2func: dict
@@ -40,15 +42,25 @@ class _Registry:
         context = {"registry": self, "functions": self.func_name2func.values()}
         return HttpResponse(template.render(context))
 
-    def get_router(self, *, list_template= 'turtle_shell/executionresult_list.html',
-            detail_template= 'turtle_shell/executionresult_detail.html', create_template=
-            'turtle_shell/executionresult_create.html'):
+    def get_router(
+        self,
+        *,
+        list_template="turtle_shell/executionresult_list.html",
+        detail_template="turtle_shell/executionresult_detail.html",
+        create_template="turtle_shell/executionresult_create.html",
+    ):
         from django.urls import path
         from . import views
+
         urls = [path("", self.summary_view, name="overview")]
         for func in self.func_name2func.values():
-            urls.extend(views.Views.from_function(func, schema=get_registry().schema).urls(list_template=list_template,
-                detail_template=detail_template, create_template=create_template))
+            urls.extend(
+                views.Views.from_function(func, schema=get_registry().schema).urls(
+                    list_template=list_template,
+                    detail_template=detail_template,
+                    create_template=create_template,
+                )
+            )
         return _Router(urls=(urls, "turtle_shell"))
 
     def clear(self):

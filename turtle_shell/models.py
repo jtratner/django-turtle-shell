@@ -6,9 +6,11 @@ import uuid
 import cattr
 import json
 
+
 class CaughtException(Exception):
     """An exception that was caught and saved. Generally don't need to rollback transaction with
     this one :)"""
+
     def __init__(self, exc, message):
         self.exc = exc
         super().__init__(message)
@@ -18,27 +20,33 @@ class ResultJSONEncodeException(CaughtException):
     """Exceptions for when we cannot save result as actual JSON field :("""
 
 
-
 class ExecutionResult(models.Model):
-    FIELDS_TO_SHOW_IN_LIST = [("func_name", "Function"),  ("created", "Created"), ("user", "User"),
-            ("status", "Status")]
+    FIELDS_TO_SHOW_IN_LIST = [
+        ("func_name", "Function"),
+        ("created", "Created"),
+        ("user", "User"),
+        ("status", "Status"),
+    ]
     uuid = models.UUIDField(primary_key=True, unique=True, editable=False, default=uuid.uuid4)
     func_name = models.CharField(max_length=512, editable=False)
     input_json = models.JSONField(encoder=utils.EnumAwareEncoder, decoder=utils.EnumAwareDecoder)
-    output_json = models.JSONField(default=dict, null=True, encoder=utils.EnumAwareEncoder,
-            decoder=utils.EnumAwareDecoder)
-    error_json = models.JSONField(default=dict, null=True, encoder=utils.EnumAwareEncoder,
-            decoder=utils.EnumAwareDecoder)
+    output_json = models.JSONField(
+        default=dict, null=True, encoder=utils.EnumAwareEncoder, decoder=utils.EnumAwareDecoder
+    )
+    error_json = models.JSONField(
+        default=dict, null=True, encoder=utils.EnumAwareEncoder, decoder=utils.EnumAwareDecoder
+    )
 
     class ExecutionStatus(models.TextChoices):
-        CREATED = 'CREATED', 'Created'
-        RUNNING = 'RUNNING', 'Running'
-        DONE = 'DONE', 'Done'
-        ERRORED = 'ERRORED', 'Errored'
-        JSON_ERROR = 'JSON_ERROR', 'Result could not be coerced to JSON'
+        CREATED = "CREATED", "Created"
+        RUNNING = "RUNNING", "Running"
+        DONE = "DONE", "Done"
+        ERRORED = "ERRORED", "Errored"
+        JSON_ERROR = "JSON_ERROR", "Result could not be coerced to JSON"
 
-    status = models.CharField(max_length=10, choices=ExecutionStatus.choices,
-            default=ExecutionStatus.CREATED)
+    status = models.CharField(
+        max_length=10, choices=ExecutionStatus.choices, default=ExecutionStatus.CREATED
+    )
 
     created = models.DateTimeField(auto_now_add=True)
     modified = models.DateTimeField(auto_now=True)
@@ -74,7 +82,7 @@ class ExecutionResult(models.Model):
         except TypeError as e:
             self.error_json = {"type": type(e).__name__, "message": str(e)}
             msg = f"Failed on {self.func_name} ({type(e).__name__})"
-            if 'JSON serializable' in str(e):
+            if "JSON serializable" in str(e):
                 self.status = self.ExecutionStatus.JSON_ERROR
                 # save it as a str so we can at least have something to show
                 self.output_json = str(result)
@@ -95,10 +103,10 @@ class ExecutionResult(models.Model):
 
     def get_absolute_url(self):
         # TODO: prob better way to do this so that it all redirects right :(
-        return reverse(f'turtle_shell:detail-{self.func_name}', kwargs={"pk": self.pk})
+        return reverse(f"turtle_shell:detail-{self.func_name}", kwargs={"pk": self.pk})
 
     def __repr__(self):
-        return (f'<{type(self).__name__}({self})')
+        return f"<{type(self).__name__}({self})"
 
     @property
     def pydantic_object(self):

@@ -1,5 +1,5 @@
 """Patch graphene django's JSONString implementation so we can use a custom encoder"""
-#Port over of graphene's JSON string to allow using a custom encoder...sigh
+# Port over of graphene's JSON string to allow using a custom encoder...sigh
 import json
 
 from graphql.language import ast
@@ -18,6 +18,7 @@ class CustomEncoderJSONString(Scalar):
     @staticmethod
     def serialize(dt):
         from turtle_shell import utils
+
         return json.dumps(dt, cls=utils.EnumAwareEncoder)
 
     @staticmethod
