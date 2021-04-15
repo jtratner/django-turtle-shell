@@ -1,0 +1,18 @@
+[tool.poetry]
+name = "turtle-shell"
+version = "0.0.1"
+description = "Easily wrap up your shell and utlity scripts into nice Django UIs/graphQL APIs"
+authors = ["Jeff Tratner <jeffrey.tratner@gmail.com>"]
+license = "MIT"
+
+[tool.poetry.dependencies]
+python = ">=3.8"
+pydantic = "^1.8.1"
+graphene-pydantic = "^0.2.0"
+graphene-django = "^2.15.0"
+
+[tool.poetry.dev-dependencies]
+
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"
