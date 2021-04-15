@@ -7,13 +7,18 @@ import turtle_shell.utils
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('turtle_shell', '0005_auto_20210412_2320'),
+        ("turtle_shell", "0005_auto_20210412_2320"),
     ]
 
     operations = [
         migrations.AddField(
-            model_name='executionresult',
-            name='traceback',
-            field=models.JSONField(decoder=turtle_shell.utils.EnumAwareDecoder, default=dict, encoder=turtle_shell.utils.EnumAwareEncoder, null=True),
+            model_name="executionresult",
+            name="traceback",
+            field=models.JSONField(
+                decoder=turtle_shell.utils.EnumAwareDecoder,
+                default=dict,
+                encoder=turtle_shell.utils.EnumAwareEncoder,
+                null=True,
+            ),
         ),
     ]

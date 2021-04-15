@@ -57,9 +57,13 @@ class ExecutionCreateView(ExecutionViewMixin, CreateView):
         try:
             self.object.execute()
         except CaughtException as e:
-            messages.warning(self.request, f"Error in Execution {self.object.pk} ({self.object.func_name}): {e}")
+            messages.warning(
+                self.request, f"Error in Execution {self.object.pk} ({self.object.func_name}): {e}"
+            )
         else:
-            messages.info(self.request, f"Completed execution for {self.object.pk} ({self.object.func_name})")
+            messages.info(
+                self.request, f"Completed execution for {self.object.pk} ({self.object.func_name})"
+            )
         return sup
 
     def get_context_data(self, *a, **k):

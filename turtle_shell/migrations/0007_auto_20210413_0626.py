@@ -6,13 +6,13 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('turtle_shell', '0006_executionresult_traceback'),
+        ("turtle_shell", "0006_executionresult_traceback"),
     ]
 
     operations = [
         migrations.AlterField(
-            model_name='executionresult',
-            name='traceback',
-            field=models.TextField(default=''),
+            model_name="executionresult",
+            name="traceback",
+            field=models.TextField(default=""),
         ),
     ]
