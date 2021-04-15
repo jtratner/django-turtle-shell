@@ -110,10 +110,10 @@ def func_to_graphene_form_mutation(func_object):
         obj = form.save()
         all_results = obj.execute()
         obj.save()
-        kwargs = {"result": obj}
+        kwargs = {"execution": obj}
         if hasattr(all_results, "dict"):
             for k, f in fields.items():
-                if k != "result":
+                if k != "execution":
                     kwargs[k] = all_results
         # TODO: nicer structure
         if obj.error_json:
@@ -126,7 +126,7 @@ def func_to_graphene_form_mutation(func_object):
 
     # TODO: figure out if name can be customized in class
     mutation_name = f"{form_class.__name__}Mutation"
-    fields = {"result": graphene.Field(ExecutionResult)}
+    fields = {"execution": graphene.Field(ExecutionResult)}
     pydantic_adapter.maybe_add_pydantic_fields(func_object, fields)
     DefaultOperationMutation = type(
         mutation_name,

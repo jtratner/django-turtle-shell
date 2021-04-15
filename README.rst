@@ -1,5 +1,132 @@
-Function to Form View
-=====================
+Django Turtle Shell
+===================
+
+NOTE: This is still in active development! Implementations and everything may
+change!
+
+How does it work?
+-----------------
+
+
+This lil' old library converts _your_ function with annotations into a ✨Django Form✨ and a graphql view.
+
+It leverages some neat features of defopt under the hood so that a function like this:
+
+.. code-block:: python
+
+    import turtle_shell
+    from pydantic import BaseModel
+    import enum
+
+    class FileSizeSummary(BaseModel):
+        p25: float
+        p50: float
+        p75: float
+        p95: float
+
+    class AnalysisSummary(BaseModel):
+        apparent_health: str
+        fastq_summary: FileSizeSummary
+
+    class AssayType(enum.Enum):
+        WGS = enum.auto()
+        NGS = enum.auto()
+
+
+    def summarize_analysis_error(
+        analysis_id: str,
+        assay_type: AssayType,
+        check_fastqs: bool=True,
+    ) -> AnalysisSummary:
+    """Summarize what happened with an analysis.
+
+    Args:
+        analysis_id: reference ID for analysis
+        assay_type: WGS or NGS (narrows checks)
+        check_fastqs: if True, look at 'em
+    """
+    ...
+
+    turtle_shell.get_registry().add(summarize_analysis_error)
+
+
+Becomes this awesome form, generated from type annotations!! (note how
+we also use defopt under the hood to assign docstring elements to parameters)
+
+.. image:: docs/images/summarize-analysis-error-form.png
+   :alt: Analysis Error Form generated from types!
+
+Make your output pydantic models (as shown above) and get nicely structured
+GraphQL output AND nice tables of data on the page :)
+
+.. image:: docs/images/summarize-analysis-graphql-example.png
+   :alt: GraphQL structured request/response
+
+And finally even pushes docs into GraphQL schema
+
+.. image:: docs/images/summarize-analysis-grapqhl-doc.png
+   :alt: example of documentation from grapqhl
+
+If you specify pydantic models as output, you'll even get a nice HTML rendering + structured types in GraphQL!
+
+Installation
+------------
+
+First install it:
+
+```
+pip install git@github.com:jtratner/django-turtle-shell.git
+```
+
+Next, you'll need to add some stuff to INSTALLED_APPS::
+
+    INSTALLED_APPS = [
+        ...
+        "turtle_shell"
+        ...
+    ]
+
+ Next run migrations::
+
+    python manage.py migrate
+
+Then in an ``executions.py`` file you can set up your own functions (or
+register external ones)::
+
+    import turtle_shell
+
+    Registry = turtle_shell.get_registry()
+
+    def myfunc(a: str):
+        return 1
+
+    Registry.add(myfunc)
+
+And finally you add it to your urls.py to do something useful.::
+
+    from django.conf.urls import include
+    from django.urls import path
+
+    import turtle_shell
+
+    router = turtle_shell.get_registry().get_router()
+    urlpatterns = [
+        path("/execute", include(router.urls)]
+    ]
+
+
+To add GraphQL to your app, add the following::
+
+    from django.urls import path
+    from graphene_django.views import GraphQLView
+    import turtle_shell
+
+    urlpatterns = [
+        # ...
+        path("graphql", GraphQLView.as_view(
+             schema=turtle_shell.get_registry().schema,
+             graphiql=True)),
+    ]
 
 
 Motivation
@@ -16,41 +143,6 @@ REMAINING WORK:
 1. Ability to do asynchronous executions (this is basically all set up)
 3. Help graphene-django release a version based on graphql-core so we can use newer graphene-pydantic :P
 
-How does it work?
------------------
-
-
-This lil' old library converts _your_ function with annotations into a ✨Django Form✨ and a graphql view.
-
-It leverages some neat features of defopt under the hood so that a function like this:
-
-.. code-block:: python
-
-    def some_action(
-        username: str,
-        url: str,
-        optional_comment: str=None,
-        hits: int = 5,
-        _special_hidden_field: bool=False,
-    ):
-    """Perform action on URL for username.
-
-    Args:
-        username: the user to associate the URL with
-        url: which url to hit
-        optional_comment: why this happened
-        hits: how many hits you saw
-    """
-    pass
-
-
-Becomes this awesome form!
-
-    <screenshot of form with fields, help text, etc>
-
-Make your output pydantic models and get nicely structured GraphQL output AND nice tables of data on the page :)
-
-If you specify pydantic models as output, you'll even get a nice HTML rendering + structured types in GraphQL!
 
 Overall gist
 ------------
@@ -160,6 +252,7 @@ ExecutionResult:
     - input_json
     - output_json
     - func_name  # defaults to module.function_name but can be customized
+    - error_json
 
     Properties:
     get_formatted_response() -> JSON serializable object
@@ -267,7 +360,7 @@ This is a great point! I didn't see it before I started.
 Using Django provides:
 
 0. FRONT END! -> key for non-technical users
-1. Persistence layer is a big deal - pretty easy on-ramp to handling 
+1. Persistence layer is a big deal - pretty easy on-ramp to handling
 2. Easy ability to add in authentication/authorization (granted FastAPI has this)
 3. Literally didn't see it and we know django better
 
