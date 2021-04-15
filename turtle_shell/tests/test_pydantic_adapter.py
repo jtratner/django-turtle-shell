@@ -40,11 +40,11 @@ def test_structured_output(db):
 
     result = execute_gql(
         myfunc,
-        'mutation { executeMyfunc(input:{a: "whatever"}) { structuredOutput { nested_things { status }}}}',
+        'mutation { executeMyfunc(input:{a: "whatever"}) { structuredOutput { nestedThings { status }}}}',
     )
     assert not result.errors
-    nested = result.data["executeMyfunc"]["output"]["nested_things"]
-    assert list(sorted(nested)) == list(sorted([{"status": "bad"}, {"status": "complete"}]))
+    nested = result.data["executeMyfunc"]["structuredOutput"]["nestedThings"]
+    assert nested == [{"status": "bad"}, {"status": "complete"}]
 
 
 @pytest.mark.xfail

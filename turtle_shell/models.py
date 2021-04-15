@@ -3,7 +3,6 @@ from django.urls import reverse
 from django.conf import settings
 from turtle_shell import utils
 import uuid
-import cattr
 import json
 import logging
 
@@ -82,8 +81,8 @@ class ExecutionResult(models.Model):
         try:
             if hasattr(result, "json"):
                 result = json.loads(result.json())
-            if not isinstance(result, (dict, str, tuple)):
-                result = cattr.unstructure(result)
+            # if not isinstance(result, (dict, str, tuple)):
+            #     result = cattr.unstructure(result)
             self.output_json = result
             self.status = self.ExecutionStatus.DONE
             # allow ourselves to save again externally
