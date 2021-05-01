@@ -81,7 +81,6 @@ def function_to_form(func, *, config: dict = None, name: str = None) -> Type[for
             field._parameter_name = parameter.name
             field._func_name = name
             if parameter.default and parameter.default is not Parameter.empty:
-                print(field.choices)
                 for potential_default in [parameter.default.name, parameter.default.value]:
                     if any(potential_default == x[0] for x in field.choices):
                         defaults[parameter.name] = potential_default
@@ -141,36 +140,28 @@ class Coercer:
     by_attribute: bool = False
 
     def __call__(self, value):
-        print(f"COERCE: {self} {value}")
         try:
             resp = self._call(value)
-            print(f"COERCED TO: {self} {value} => {resp}")
             return resp
         except Exception as e:
             import traceback
 
-            print(f"FAILED TO COERCE {repr(value)}({value})")
             traceback.print_exc()
             raise
 
     def _call(self, value):
         if value and isinstance(value, self.enum_type):
-            print("ALREADY INSTANCE")
             return value
         if self.by_attribute:
-            print("BY ATTRIBUTE")
             return getattr(self.enum_type, value)
         try:
-            print("BY __call__")
             resp = self.enum_type(value)
-            print(f"RESULT: {resp} ({repr(resp)})")
             return resp
         except ValueError as e:
             import traceback
 
             traceback.print_exc()
             try:
-                print("BY int coerced __call__")
                 return self.enum_type(int(value))
             except ValueError as f:
                 # could not coerce to int :(

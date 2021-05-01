@@ -51,7 +51,6 @@ def convert_form_field_to_choice(field):
         index += 1
         full_name = f"{name}{index}"
     EnumCls = convert_choice_field_to_enum(field, name=full_name)
-    print(EnumCls, getattr(EnumCls, "BAM", None))
     converted = EnumCls(description=field.help_text, required=field.required)
     _seen_names.add(full_name)
 
@@ -91,12 +90,9 @@ def func_to_graphene_form_mutation(func_object):
     def mutate_and_get_payload(cls, root, info, **input):
         """Set defaults from function in place!"""
         input = {**defaults, **input}
-        print(
-            f"MUTATE GET PAYLOAD {input} {repr(input.get('read_type'))} {type(input.get('read_type'))}"
-        )
         form = cls.get_form(root, info, **input)
         if not form.is_valid():
-            print(form.errors)
+            print("FORM ERRORS", form.errors)
         try:
             return super(DefaultOperationMutation, cls).mutate_and_get_payload(root, info, **input)
         except Exception as e:

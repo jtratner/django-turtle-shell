@@ -13,7 +13,6 @@ def pydantic_model_to_table(obj):
     if not hasattr(obj, "dict"):
         raise ValueError("Invalid object - must be pydantic type! (got {type(obj).__name__})")
     if hasattr(obj, "front_end_dict"):
-        print("FRONT END DICT")
         raw = obj.front_end_dict()
     else:
         raw = json.loads(obj.json())

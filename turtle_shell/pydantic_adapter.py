@@ -26,9 +26,7 @@ def get_pydantic_models_in_order(model):
     found = []
     for field in model.__fields__.values():
         type_ = field.type_
-        print(type_)
         if issubclass(type_, BaseModel):
-            print(f"HIT {type_}")
             found.extend(get_pydantic_models_in_order(type_))
     found.append(model)
     seen_classes = set()
@@ -44,7 +42,6 @@ def get_object_type(model) -> PydanticObjectType:
     """Construct object types in order, using caching etc"""
     reg = registry.get_global_registry()
     classes = get_pydantic_models_in_order(model)
-    print("FOUND {len(classes)} classes from model")
     for klass in classes:
         if reg.get_type_for_model(klass):
             continue
@@ -54,7 +51,6 @@ def get_object_type(model) -> PydanticObjectType:
             (PydanticObjectType,),
             {"Meta": type("Meta", (object,), {"model": klass})},
         )
-        print(f"CREATED: {klass.__name__}")
         assert reg.get_type_for_model(klass), klass
     return reg.get_type_for_model(model)
 
@@ -62,12 +58,10 @@ def get_object_type(model) -> PydanticObjectType:
 def maybe_add_pydantic_fields(func_object, fields):
     if not (pydantic_class := is_pydantic(func_object.func)):
         return
-    print("ADDING PYDANTIC FIELDS")
     obj_name = pydantic_class.__name__
 
     root_object = get_object_type(pydantic_class)
     fields[obj_name[0].lower() + obj_name[1:]] = graphene.Field(root_object)
-    print(f"Added field {obj_name}")
 
 
 def maybe_convert_pydantic_model(result):
