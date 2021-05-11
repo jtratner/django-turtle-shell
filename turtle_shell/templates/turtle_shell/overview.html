@@ -10,9 +10,7 @@
   <td>
     <form target="{% url 'turtle_shell:create-'|add:elem.name %}">
         <button type="button" class="btn btn-secondary" data-toggle="tooltip" title="Create {{elem.name}}" aria-label="Create {{elem.name}}">
-            <a href="{% url 'turtle_shell:create-'|add:elem.name %}">
                 <i class="fas fa-plus-square"></i><span class="sr-only">Create New Execution</span>
-            </a>
         </button>
     </form>
   </td>
