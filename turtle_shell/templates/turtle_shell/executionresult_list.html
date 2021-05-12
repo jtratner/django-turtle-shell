@@ -2,7 +2,7 @@
 
 {% block content %}
 <h2>Executions for {{func_name}} </h2>
-<p><form action="{% url 'turtle_shell:create-'|add:func_name %}"><button class="btn btn-default btn-primary">Create a new execution <span class="glyphicon glyphicon-plus" aria-hidden="true"></button></form></p>
+<p><form action="{% url 'turtle_shell:create-'|add:func_name %}"><button class="btn btn-default btn-primary">Create a new execution <span class="glyphicon glyphicon-plus" aria-hidden="true"></span></button></form></p>
 {% if object_list %}
 <table class="table table-striped table-responsive">
     <thead>
@@ -24,7 +24,7 @@
         {% endfor %}
         </tr>
     </tbody>
-</ul>
+</table>
 {% else %}
 <p> No executions :( </p>
 {% endif %}
