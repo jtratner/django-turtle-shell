@@ -1,5 +1,7 @@
 from dataclasses import dataclass
 
+from django.views.generic import TemplateView
+
 
 @dataclass
 class _Router:
@@ -34,13 +36,20 @@ class _Registry:
     def get(self, name):
         return self.func_name2func.get(name, None)
 
-    def summary_view(self, request):
-        from django.template import loader
-        from django.http import HttpResponse
+    def summary_view(self, template_name: str="turtle_shell/overview.html"):
+        """Create a summary view.
 
-        template = loader.get_template("turtle_shell/overview.html")
-        context = {"registry": self, "functions": self.func_name2func.values()}
-        return HttpResponse(template.render(context))
+        This uses a class-based view version of Template View just to make
+        """
+        class SummaryView(TemplateView):
+            template_name = template_name
+            def get_context_data(self, **kwargs):
+                ctx = super().get_context_data()
+                ctx["registry"] = self
+                ctx["functions"] = self.func_name2func.values()
+                return ctx
+
+        return SummaryView
 
     def get_router(
         self,
@@ -48,11 +57,12 @@ class _Registry:
         list_template="turtle_shell/executionresult_list.html",
         detail_template="turtle_shell/executionresult_detail.html",
         create_template="turtle_shell/executionresult_create.html",
+        overview_template="turtle_shell/overview.html",
     ):
         from django.urls import path
         from . import views
 
-        urls = [path("", self.summary_view, name="overview")]
+        urls = [path("", self.summary_view(template_name=overview_template), name="overview")]
         for func in self.func_name2func.values():
             urls.extend(
                 views.Views.from_function(func, schema=get_registry().schema).urls(
