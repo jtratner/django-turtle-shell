@@ -36,20 +36,23 @@ class _Registry:
     def get(self, name):
         return self.func_name2func.get(name, None)
 
-    def summary_view(self, template_name: str="turtle_shell/overview.html"):
+    def summary_view(self, template_name: str = "turtle_shell/overview.html"):
         """Create a summary view.
 
         This uses a class-based view version of Template View just to make
         """
+        registry = self
+
+        # TODO: Something is super goofy here, not sure how to wrap this up more nicely.
+
         class SummaryView(TemplateView):
-            template_name = template_name
             def get_context_data(self, **kwargs):
                 ctx = super().get_context_data()
-                ctx["registry"] = self
-                ctx["functions"] = self.func_name2func.values()
+                ctx["registry"] = registry
+                ctx["functions"] = registry.func_name2func.values()
                 return ctx
 
-        return SummaryView
+        return SummaryView.as_view(template_name=template_name)
 
     def get_router(
         self,
