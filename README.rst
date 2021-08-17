@@ -115,7 +115,7 @@ And finally you add it to your urls.py to do something useful.::
     ]
 
 
-To add GraphQL to your app, add the following::
+To add GraphQL (via [`graphene-django`](https://github.com/graphql-python/graphene-django#settings) ) to your app, add the following::
 
     from django.urls import path
     from graphene_django.views import GraphQLView
@@ -128,6 +128,13 @@ To add GraphQL to your app, add the following::
              graphiql=True)),
     ]
 
+And you'll also need to add `graphene_django` to your installed apps as well::
+
+    INSTALLED_APPS = [
+        ...
+        "graphene_django"
+        ...
+    ]
 
 Motivation
 ----------
