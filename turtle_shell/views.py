@@ -55,7 +55,8 @@ class ExecutionCreateView(ExecutionViewMixin, CreateView):
 
         sup = super().form_valid(form)
         try:
-            self.object.execute()
+            self.object.create_execution()
+            #self.object.execute()
         except CaughtException as e:
             messages.warning(
                 self.request, f"Error in Execution {self.object.pk} ({self.object.func_name}): {e}"

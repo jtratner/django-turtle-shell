@@ -55,6 +55,38 @@ class ExecutionResult(models.Model):
     modified = models.DateTimeField(auto_now=True)
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, null=True)
 
+    def create_execution(self):
+        if self.status in [self.ExecutionStatus.CREATED,
+                           self.ExecutionStatus.RUNNING,
+                           self.ExecutionStatus.DONE,
+                           self.ExecutionStatus.ERRORED,
+                           self.ExecutionStatus.JSON_ERROR]:
+            raise ValueError("Cannot create a new execution. The execution state isn't complete")
+        func = self.get_function()
+        create_response = None
+        try:
+            self.status = self.ExecutionStatus.CREATED
+            # allow ourselves to save again externally
+            with transaction.atomic():
+                self.save()
+            create_response['uuid'] = self.uuid
+            create_response['status'] = self.status
+            create_response['input_json'] = self.input_json
+            create_response['output_json'] = json.dumps({
+                "message": "The execution is in progress and will update upon completion"})
+        except Exception as e:
+            import traceback
+            logger.error(
+                f"Failed to create {self.func_name} :(: {type(e).__name__}:{e}", exc_info=True
+            )
+            # TODO: catch integrity error separately
+            self.error_json = {"type": type(e).__name__, "message": str(e)}
+            self.traceback = "".join(traceback.format_exc())
+            self.status = self.ExecutionStatus.ERRORED
+            self.save()
+            raise CaughtException(f"Failed on {self.func_name} ({type(e).__name__})", e) from e
+        return create_response
+
     def execute(self):
         """Execute with given input, returning caught exceptions as necessary"""
         from turtle_shell import pydantic_adapter
