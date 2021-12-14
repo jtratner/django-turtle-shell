@@ -52,11 +52,14 @@ class ExecutionCreateView(ExecutionViewMixin, CreateView):
 
     def form_valid(self, form):
         from .models import CaughtException
-
         sup = super().form_valid(form)
         try:
-            self.object.create_execution()
-            #self.object.execute()
+            # If the function should be directly executed
+            if self.object.execute == True:
+                self.object.execute()
+            # If the function object should be created to be queued for async execution
+            else:
+                self.object.create_execution()
         except CaughtException as e:
             messages.warning(
                 self.request, f"Error in Execution {self.object.pk} ({self.object.func_name}): {e}"

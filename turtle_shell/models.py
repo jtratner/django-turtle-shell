@@ -100,7 +100,6 @@ class ExecutionResult(models.Model):
             result = original_result = func(**self.input_json)
         except Exception as e:
             import traceback
-
             logger.error(
                 f"Failed to execute {self.func_name} :(: {type(e).__name__}:{e}", exc_info=True
             )

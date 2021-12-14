@@ -48,11 +48,12 @@ class _Function:
     name: str
     form_class: object
     doc: str
+    execute: bool
 
     @classmethod
-    def from_function(cls, func, *, name, config=None):
+    def from_function(cls, func, *, name, execute, config=None):
         form_class = function_to_form(func, name=name, config=config)
-        return cls(func=func, name=name, form_class=form_class, doc=form_class.__doc__)
+        return cls(func=func, name=name, form_class=form_class, doc=form_class.__doc__, execute=execute)
 
 
 def doc_mapping(str) -> Dict[str, str]:
