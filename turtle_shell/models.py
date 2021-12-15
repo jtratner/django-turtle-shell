@@ -70,6 +70,7 @@ class ExecutionResult(models.Model):
             create_response['input_json'] = self.input_json
             create_response['output_json'] = json.dumps({
                 "message": "The execution is in progress and will update upon completion"})
+            print(f"Returning response: {create_response}")
         except Exception as e:
             import traceback
             logger.error(

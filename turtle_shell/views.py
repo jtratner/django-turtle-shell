@@ -56,9 +56,11 @@ class ExecutionCreateView(ExecutionViewMixin, CreateView):
         try:
             # If the function should be directly executed
             if self.object.execute == True:
+                print("Executing function synchronously. Calling execute()")
                 self.object.execute()
             # If the function object should be created to be queued for async execution
             else:
+                print("Creating function - calling create_execution(). Add to a queue to execute asynchronously.")
                 self.object.create_execution()
         except CaughtException as e:
             messages.warning(
