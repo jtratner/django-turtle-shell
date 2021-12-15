@@ -56,12 +56,8 @@ class ExecutionResult(models.Model):
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, null=True)
 
     def create_execution(self):
-        if self.status in [self.ExecutionStatus.CREATED,
-                           self.ExecutionStatus.RUNNING,
-                           self.ExecutionStatus.DONE,
-                           self.ExecutionStatus.ERRORED,
-                           self.ExecutionStatus.JSON_ERROR]:
-            raise ValueError("Cannot create a new execution. The execution state isn't complete")
+        #if self.status not in [self.ExecutionStatus.CREATED]:
+        #    raise ValueError("Cannot create a new execution. The execution state isn't complete")
         func = self.get_function()
         create_response = None
         try:
