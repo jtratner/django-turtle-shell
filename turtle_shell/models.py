@@ -59,7 +59,7 @@ class ExecutionResult(models.Model):
         #if self.status not in [self.ExecutionStatus.CREATED]:
         #    raise ValueError("Cannot create a new execution. The execution state isn't complete")
         func = self.get_function()
-        create_response = None
+        create_response = {}
         try:
             self.status = self.ExecutionStatus.CREATED
             # allow ourselves to save again externally
