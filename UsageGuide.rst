@@ -1,8 +1,6 @@
 Django Turtle-Shell Usage Guide
 ===============================
 
-Please refer detailed design for current vs. proposed changes: https://miro.com/app/board/uXjVOa8DLw8=/
-
 
 Extending Turtle-shell Functionality
 ------------------------------------
