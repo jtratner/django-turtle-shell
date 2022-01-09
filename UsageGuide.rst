@@ -8,7 +8,7 @@ Django turtle-shell supports asynchronous and synchronous execution of tasks. Us
 
 There's an easy migration path from sync to async tasks.
 
-first write your main method like this: XYZ.
+First write your main functions to be run as turtle-shell executions like this.
 
 
 Adding Functions To Registry
@@ -58,41 +58,29 @@ The ``turtle_shell`` model functions can be overridden to define app-specific im
 .. code-block::
 
     class AppExecution(turtle_shell.models.Execution):
-        def get_current_state(inputs, state):
-            # App specific behavior to calculate internal state of inputs (based on output from previous task), the status (state)
+        def get_current_state(inputs, status):
+            # App specific behavior to calculate internal state of inputs (based on output from previous task),
+            # the status (state)
             # and return the new internal state of inputs (or output at this stage) and new status (state)
-            return current_inputs, current_state
+            return current_inputs, current_status
 
-        def _validate_inputs(inputs, func_name, state):
-            # Define input validation for function
+        def _validate_inputs(inputs, func_name, status):
+            # Define input validation for function executions
+            # and return current state of inputs and status
             if inputs.valid():
-                return get_current_state(inputs, state)
+                super()._validate_inputs(inputs, status)
 
         def create(**kwargs):
             # App specific behavior to start an execution
-            try:
-                self.inputs = self.cleaned_data(**kwargs['input'])
-                self.func = self.get_function()
-                cur_inp, cur_state = get_current_state(self.inputs, self.state)
-                # Here the execution instance is created, so the
-                self.state = cur_state # will be ExecutionStatus.CREATED
-                self.save()
-            except CreationError as ce:
-                self.handle_error_response(ce)
-            return cur_inp, cur_state
+            self.inputs = self.cleaned_data(kwargs['input_json'])
+            cur_inp, cur_status = super().create(self.inputs, self.status)
+            return cur_inp, cur_status
 
         def start(**kwargs):
-            # App specific behavior for running the function
+            # App specific behavior for starting the function execution
             self.inputs = kwargs['input']
-            cur_inp, cur_state = get_current_state(self.inputs, self.state)
-            self.state = cur_state # will be ExecutionStatus.STARTED
-            try:
-                val_inp, val_state = _validate_inputs(cur_inp, self.func, cur_state)
-                self.state = val_state # will be ExecutionStatus.VALIDATED
-                self.save()
-            except ValidationError as ve:
-                self.handle_error_response(ve)
-            return val_inp, val_state
+            val_inp, val_status = super().start(inputs, status)
+            return val_inp, val_status
 
 
 The ``create_execution`` method is expected to validate arguments and prep data for downstream work. This should set the state to ``created``. For asynchronous functions, this can trigger queueing the executions with this state for async execution.
@@ -108,19 +96,14 @@ The ``execute`` function can define the app-specific behavior for running a func
             # App specific behavior for running the function
             self.inputs = kwargs['input']
             func = self.func
-            try:
-                result = func(**self.inputs)
-                self.save()
-                result_out, result_state = get_current_state(result, self.state)
-            except ExecutionError as ee:
-                self.handle_error_response(ee)
-            return result_out, result_state
+            result_out, result_status = super().execute(self.inputs, func, self.status)
+            return result_out, result_status
 
 Then an optional ``update`` method like this:
 
 .. code-block::
 
-    def update():
+    def update(**kwargs):
          # App specific update functionality
 
 The update method will take in current state and be expected to transition to next allowed state based on the status of the execution. In case of async function executions, this could update the status and intermediate outputs at each stage, if any.
@@ -129,8 +112,10 @@ You can optionally add a cancel method that would do cancel/ stop an execution t
 
 .. code-block::
 
-    def cancel():
+    def cancel(**kwargs):
         # App specific implementation
+        cancel_out, cancel_status = super().cancel(self.inputs, self.status)
+        return cancel_out, cancel_status
 
 Error handling and responses can be defined by overriding the ``handle_error_response`` function:
 
@@ -168,15 +153,21 @@ Functions that execute synchronously are a special case and can be added to the 
         if not func_obj:
            func_obj = _Function.from_function(func, name=name, config=config)
 
+The default state transitions defined in the django turtle-shell are:
+
+.. image:: docs/images/turtle-shell-state-machine-transitions.png
+   :alt: State transitions
+
 Define these new classes:
 
 ``ExecutionValidator`` : To define input validation for function executions
 
-``ExecutionState``: To define execution states, transition filter annotator and to implement state transitions
+``ExecutionStatus``: To define execution states, status at each stage and transitions from one to next
 
-``Execution``: To implement functionality to create, run, update or cancel executions to specific state transitions
+``Execution``: To implement functionality to create, start, execute, update or cancel executions to specific state transitions
 
 ``SyncExecutionState``  and ``SyncExecution`` can be special case implementations for synchronous function executions.
+
 
 .. code-block::
 
@@ -184,7 +175,7 @@ Define these new classes:
         def validate_execution_input(self, uuid, func_name, input_json):
             # define validation here
 
-    class ExecutionState:
+    class ExecutionStatus:
         states = []
         def state_transition_filter(self, from_states, to_states):
             # Default implementation is async
@@ -193,7 +184,7 @@ Define these new classes:
         def transition_state(self, uuid, from_state, to_state):
             #Change from_state to to_state for the object and save
 
-    class SyncExecutionState(ExecutionState):
+    class SyncExecutionState(ExecutionStatus):
         def state_transition_filter(self, from_states, to_states):
            # Implementation specific to sync execution as needed
 
@@ -284,23 +275,12 @@ Extend the functionality of the `ExecutionResult` model to define ways to create
 .. code-block::
 
     class ExecutionResult(models.Model):
-        def create_execution():
-            create_response = {}
-            try:
-                self.status = self.ExecutionStatus.CREATED
-                with transaction.atomic():
-                    self.save()
-                create_response['uuid'] = self.uuid
-                create_response['status'] = self.status
-                create_response['output_json'] = json.dumps({
- "message": "The execution is in progress and will update upon completion"})
-                 ...
-            except:
-                error_details = {'error_type': error_type,
-                                 'error_traceback': traceback,}
-                error_response = self.handle_error_response(error_details)
-                return error_response
-            return create_response
+        def get_current_state(inputs, status):
+            # Override this to define app-specific behavior
+            # to calculate internal state of inputs (based on output from previous task),
+            # the status and return the new internal state of inputs (or output at this stage) and new status.
+            # This can be defined by apps extending this functionality.
+            pass
 
         def handle_error_response(self, error_details):
             error_response = {}
@@ -311,32 +291,73 @@ Extend the functionality of the `ExecutionResult` model to define ways to create
             error_response['uuid'] = self.uuid
             error_response['error_details'] = error_details
             ...
-           return error_response
+            return error_response
+
+        def _validate_inputs(inputs, func_name, status):
+            # Can be overridden to define app-specific input validation for function executions
+            return get_current_state(inputs, status)
+
+        def create(**kwargs):
+            ...
+            try:
+                self.func = self.get_function()
+                # Here the execution instance is created, so the
+                self.inputs = self.cleaned_data(kwargs['input'])
+                cur_inp, cur_status = get_current_state(self.inputs, self.status)
+                self.status = cur_status # will be self.ExecutionStatus.CREATED
+                with transaction.atomic():
+                    self.save()
+                create_response['uuid'] = self.uuid
+                create_response['status'] = self.status
+                create_response['output_json'] = json.dumps({
+ "message": "The execution is in progress and will update upon completion"})
+                 ...
+            except CreationError as ce:
+                error_details = {'error_type': ce.error_type,
+                                 'error_traceback': traceback,}
+                error_response = self.handle_error_response(error_details)
+            return cur_inp, cur_status
+
+
+        def start(**kwargs):
+            ...
+            # Generic behavior for starting functions
+            cur_inp, cur_status = get_current_state(self.inputs, self.status)
+            self.status = cur_status # will be ExecutionStatus.STARTED
+            try:
+                val_inp, val_status = self._validate_inputs(cur_inp, self.func, cur_status)
+                self.status = val_status # will be ExecutionStatus.VALIDATED
+                self.save()
+            except ValidationError as ve:
+                error_details = {'error_type': ve.error_type,
+                                 'error_traceback': traceback,}
+                self.handle_error_response(ve)
+            return val_inp, val_status
+
 
         def execute():
             ...
             try:
-                result = original_result = func(**self.input_json)
+                result = original_result = func(**self.inputs)
                 result = json.loads(result.json())
                 self.output_json = result
-                self.status = self.ExecutionStatus.DONE
-                   with transaction.atomic():
+                result_out, result_status = get_current_state(result, self.status)
+                self.status = result_status # will be self.ExecutionStatus.DONE
+                with transaction.atomic():
                         self.save()
-            except:
-                error_details = {'error_type': error_type,
+            except ExecutionError as ee:
+                error_details = {'error_type': ee.error_type,
                                  'error_traceback': traceback}
                 error_response = self.handle_error_response(error_details)
                 return error_response
             ...
-            return original_result
+            return result_out, result_status
 
         def cancel():
-            cancel_response = {}
             ...
-            self.status = self.ExecutionStatus.CANCELLED
+            cancel_out, cancel_status = get_current_state(self.inputs, self.status)
+            self.status = cancel_status # will be self.ExecutionStatus.CANCELLED
             with transaction.atomic():
                 self.save()
-            cancel_response['uuid'] = self.uuid
-            cancel_response['status'] = self.status
             ....
-            return cancel_response
+            return cancel_out, cancel_status
