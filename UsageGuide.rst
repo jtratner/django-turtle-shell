@@ -355,6 +355,7 @@ Once the inputs are validated in this stage, the ``func`` instance can be advanc
 
 
 Define tasks to pick up pending operations and move them to the next state.
+The ``advance()`` for each object would ideally take the current state, next possible state, current status and call on the next state to update the state and status.
 
 .. code-block::
 
@@ -364,5 +365,6 @@ Define tasks to pick up pending operations and move them to the next state.
     for pending_exc in pending_executions:
         pending_exc.advance()
     return
+
 
 
