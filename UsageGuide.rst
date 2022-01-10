@@ -205,7 +205,6 @@ This provides views for asynchronous functions, which is the default execution m
 
 Extend the functionality of the `ExecutionResult` model to define ways to create, run, update and cancel executions.
 
-
 Define state machine constants (states, tranistions, callbacks statuses, etc)
 
 The default state transitions in the django turtle-shell:
@@ -235,6 +234,8 @@ The ``ExecutionResultManager`` can be extended to define handling state transiti
 
     class ExecutionResultManager(models.Manager):
         model = ExecutionResult
+        validator = ExecutionValidator()
+
         inputs = {}
 
         def pending(self):
@@ -260,8 +261,14 @@ The ``ExecutionResultManager`` can be extended to define handling state transiti
             ...
             return error_response
 
-        def _validate_inputs(input, func_name, status):
-            # Can be overridden to define app-specific input validation for function executions
+        def _validate_inputs(inputs, func_name):
+            try:
+                validate_execution_input(input['uuid'], func_name, input['input_json'])
+                # Can be overridden to define app-specific input validation for function executions
+            except ValidationException as ve:
+                error_details = {'error_type': ve.error_type,
+                                 'error_traceback': traceback,}
+                return self.handle_error_response(error_details)
             return get_current_state(inputs, status)
 
         def _get_inputs(uuid, input_json, status, current_state, next_state, output_json):
@@ -286,14 +293,14 @@ The ``ExecutionResultManager`` can be extended to define handling state transiti
             except CreationError as ce:
                 error_details = {'error_type': ce.error_type,
                                  'error_traceback': traceback,}
-                error_response = self.handle_error_response(error_details)
-            return cur_inp, cur_status
+                return self.handle_error_response(error_details)
+            return cur_inp
 
 
 An execution is created with ``create()`` and can be picked up by the tasks as ``pending``.
 It can advance to ``start`` and move to the next states as defined by the state transitions. At this stage, the instance would have cleaned inputs from the form defined in ``input_json`` that would be pending function-specific validations.
 
-    .. code-block::
+.. code-block::
 
         def start(**kwargs):
             ...
@@ -311,13 +318,13 @@ It can advance to ``start`` and move to the next states as defined by the state 
             except ValidationError as ve:
                 error_details = {'error_type': ve.error_type,
                                  'error_traceback': traceback,}
-                self.handle_error_response(ve)
+                return self.handle_error_response(ve)
             return val_inp
 
 
 Once the inputs are validated in this stage, the ``func`` instance can be advanced to execution. Other possible state transitions could be: ``handle error response`` if the validation fails or ``cancel`` if the user cancels the execution before it advances to a running state.
 
-    .. code-block::
+.. code-block::
 
         def execute():
             ...
@@ -336,8 +343,7 @@ Once the inputs are validated in this stage, the ``func`` instance can be advanc
             except ExecutionError as ee:
                 error_details = {'error_type': ee.error_type,
                                  'error_traceback': traceback}
-                error_response = self.handle_error_response(error_details)
-                return error_response
+                return self.handle_error_response(error_details)
             ...
             return result_out
 
@@ -368,6 +374,66 @@ Once the inputs are validated in this stage, the ``func`` instance can be advanc
             return update_out
 
 
+Define ``ExecutionValidator`` that can be extended for defining function-specific validations.
+
+.. code-block::
+
+    class ExecutionValidator:
+        def validate_execution_input(self, uuid, func_name, input_json):
+            # define validation here
 
 
+``ExecutionStatus`` class defines the various states, statuses and transitions. This includes state machine constants (states, tranistions, callbacks statuses, etc)
 
+.. code-block::
+
+    class ExecutionStatus:
+        # Define the statuses as constants
+        CREATED = "created"
+        STARTED = "started"
+        VALIDATED = "validated"
+        RUNNING = "running"
+        UPDATED = "updated"
+        ERRORED = "cancelled"
+        CANCELLED = "cancelled"
+        DONE = "done"
+
+        STATUS_CHOICES = (
+        (CREATED, "Created"),
+        (STARTED, "Started execution"),
+        (VALIDATED, "Validated input"),
+        (RUNNING, "Running"),
+        (CANCELLED, "Cancelled"),
+        (ERRORED, "Errored"),
+        (UPDATED, "Updated"),
+        (DONE, "Completed"))
+
+        # Define the transitions as constants
+        CREATE = "create"
+        START = "start"
+        ADVANCE = "advance"
+
+        # The states of the machine
+        SM_STATES = [
+            dict(name=CREATED, on_enter=[START]),
+            dict(name=STARTED, on_enter=[ADVANCE]),
+            ...
+        ]
+
+        # The machine's initial state
+        SM_INITIAL_STATE = CREATED
+
+        # The machine's final states
+        SM_FINAL_STATES = [DONE, CANCELLED, ERRORED]
+
+        # The transititions as a list of dictionaries
+        # This could be defined by classes that extend this functionality based on app-specifi functionality
+        SM_TRANSITIONS = [
+            # reflexive transition to start state machine
+            dict(trigger=START, source=CREATED, dest=STARTED),
+            # define how to advance from created to next states
+            dict(trigger=ADVANCE, source=CREATED, dest=...),
+        ]
+
+        # Define any other transition filters
+        ...
