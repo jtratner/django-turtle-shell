@@ -155,11 +155,6 @@ Functions that execute synchronously are a special case and can be added to the 
         if not func_obj:
            func_obj = _Function.from_function(func, name=name, config=config)
 
-The default state transitions defined in the django turtle-shell are:
-
-.. image:: docs/images/turtle-shell-state-machine-transitions.png
-   :alt: State transitions
-
 
 Extending Views To Support Async/ Sync Function Views
 -----------------------------------------------------
@@ -213,8 +208,27 @@ Extend the functionality of the `ExecutionResult` model to define ways to create
 
 Define state machine constants (states, tranistions, callbacks statuses, etc)
 
+The default state transitions in the django turtle-shell:
+
+.. image:: docs/images/turtle-shell-state-machine-transitions.png
+   :alt: State transitions
+
+
 Define a manager ``ExecutionResultManager`` for managing the internal state and transitions of the execution objects with state machine defined above.
 This should be able to poll for any state changes to execution instances and do the required to return current state and status for each object when called from ``get_current_state``.
+
+Define tasks to pick up pending operations and move them to the next state.
+The ``advance()`` for each object would ideally take the current state, next possible state, current status and call on the next state to update the state and status.
+
+.. code-block::
+
+    @shared_task()
+    def advance_executions():
+    pending_executions = ExecutionResult.objects.pending()
+    for pending_exc in pending_executions:
+        pending_exc.advance()
+    return
+
 The ``ExecutionResultManager`` can be extended to define handling state transitions and polling methods for different functions.
 
 .. code-block::
@@ -276,7 +290,7 @@ The ``ExecutionResultManager`` can be extended to define handling state transiti
             return cur_inp, cur_status
 
 
-An execution is created with ``create()`` and can be picked up by the tasks as pending.
+An execution is created with ``create()`` and can be picked up by the tasks as ``pending``.
 It can advance to ``start`` and move to the next states as defined by the state transitions. At this stage, the instance would have cleaned inputs from the form defined in ``input_json`` that would be pending function-specific validations.
 
     .. code-block::
@@ -354,17 +368,6 @@ Once the inputs are validated in this stage, the ``func`` instance can be advanc
             return update_out
 
 
-Define tasks to pick up pending operations and move them to the next state.
-The ``advance()`` for each object would ideally take the current state, next possible state, current status and call on the next state to update the state and status.
-
-.. code-block::
-
-    @shared_task()
-    def advance_executions():
-    pending_executions = ExecutionResult.objects.pending()
-    for pending_exc in pending_executions:
-        pending_exc.advance()
-    return
 
 
 
