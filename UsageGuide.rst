@@ -58,11 +58,11 @@ The ``turtle_shell`` model functions can be overridden to define app-specific im
 .. code-block::
 
     class AppExecution(turtle_shell.models.Execution):
-        def get_current_state(inputs, status):
+        def get_current_state(inputs):
             # App specific behavior to calculate internal state of inputs (based on output from previous task),
             # the status (state)
             # and return the new internal state of inputs (or output at this stage) and new status (state)
-            return current_inputs, current_status
+            return current_inputs
 
         def _validate_inputs(inputs, func_name, status):
             # Define input validation for function executions
@@ -72,15 +72,15 @@ The ``turtle_shell`` model functions can be overridden to define app-specific im
 
         def create(**kwargs):
             # App specific behavior to start an execution
-            self.inputs = self.cleaned_data(kwargs['input_json'])
-            cur_inp, cur_status = super().create(self.inputs, self.status)
-            return cur_inp, cur_status
+            input_json = self.cleaned_data(kwargs['input_json'])
+            self.inputs = _get_inputs(self.uuid, input_json, self.status, None, next_state, None)
+            cur_inp = super().create(self.inputs)
+            return cur_inp
 
         def start(**kwargs):
             # App specific behavior for starting the function execution
-            self.inputs = kwargs['input']
-            val_inp, val_status = super().start(inputs, status)
-            return val_inp, val_status
+            val_inp = super().start(self.inputs)
+            return val_inp
 
 
 The ``create_execution`` method is expected to validate arguments and prep data for downstream work. This should set the state to ``created``. For asynchronous functions, this can trigger queueing the executions with this state for async execution.
@@ -98,8 +98,8 @@ The ``execute`` function can define the app-specific behavior for running a func
             # App specific behavior for running the function
             self.inputs = kwargs['input']
             func = self.func
-            result_out, result_status = super().execute(self.inputs, func, self.status)
-            return result_out, result_status
+            result_out = super().execute(self.inputs, func)
+            return result_out
 
 Then an optional ``update`` method like this:
 
@@ -116,8 +116,8 @@ You can optionally add a cancel method that would do cancel/ stop an execution t
 
     def cancel(**kwargs):
         # App specific implementation
-        cancel_out, cancel_status = super().cancel(self.inputs, self.status)
-        return cancel_out, cancel_status
+        cancel_out = super().cancel(self.inputs)
+        return cancel_out
 
 Error handling and responses can be defined by overriding the ``handle_error_response`` function:
 
@@ -211,10 +211,11 @@ This provides views for asynchronous functions, which is the default execution m
 Extend the functionality of the `ExecutionResult` model to define ways to create, run, update and cancel executions.
 
 
-Define a manager ``ExecutionResultManager`` for managing the internal state and transitions of the execution objects.
+Define state machine constants (states, tranistions, callbacks statuses, etc)
+
+Define a manager ``ExecutionResultManager`` for managing the internal state and transitions of the execution objects with state machine defined above.
 This should be able to poll for any state changes to execution instances and do the required to return current state and status for each object when called from ``get_current_state``.
 The ``ExecutionResultManager`` can be extended to define handling state transitions and polling methods for different functions.
-
 
 .. code-block::
 
@@ -222,7 +223,12 @@ The ``ExecutionResultManager`` can be extended to define handling state transiti
         model = ExecutionResult
         inputs = {}
 
-        def get_current_state(inputs, status):
+        def pending(self):
+            return Execution.objects.exclude(
+                status__in=XYZ # Define list of statuses that could be defined as pending
+            )
+
+        def get_current_state(inputs):
             # Override this to define app-specific behavior
             # to calculate internal state of inputs (based on output from previous task),
             # the status and return the new internal state of inputs (or output at this stage) and new status.
@@ -258,10 +264,8 @@ The ``ExecutionResultManager`` can be extended to define handling state transiti
             try:
                 self.func = self.get_function()
                 # Here the execution instance is created, so the
-                input_json = self.cleaned_data(kwargs['input_json'])
-                self.inputs = _get_inputs(self.uuid, input_json, self.status, None, next_state, None)
-                cur_inp, cur_status = get_current_state(self.inputs, self.status)
-                self.status = cur_status # will be self.ExecutionStatus.CREATED
+                cur_inp = get_current_state(self.inputs, self.status)
+                self.status = cur_inp['status'] # will be self.ExecutionStatus.CREATED
                 with transaction.atomic():
                     self.save()
                  ...
@@ -272,22 +276,34 @@ The ``ExecutionResultManager`` can be extended to define handling state transiti
             return cur_inp, cur_status
 
 
+An execution is created with ``create()`` and can be picked up by the tasks as pending.
+It can advance to ``start`` and move to the next states as defined by the state transitions. At this stage, the instance would have cleaned inputs from the form defined in ``input_json`` that would be pending function-specific validations.
+
+    .. code-block::
+
         def start(**kwargs):
             ...
             self.inputs = _get_inputs(self.uuid, input_json, self.status, current_state, next_state, None)
             # Generic behavior for starting functions
-            cur_inp, cur_status = get_current_state(self.inputs, self.status)
+            cur_inp = get_current_state(self.inputs, self.status)
             self.status = cur_status # will be ExecutionStatus.STARTED
             try:
-                val_inp, val_status = self._validate_inputs(cur_inp, self.func, cur_status)
-                self.status = val_status # will be ExecutionStatus.VALIDATED
+                val_inp = self._validate_inputs(cur_inp, self.func, cur_status)
+                self.status = val_inp['status'] # will be ExecutionStatus.VALIDATED
+                self.input_json = val_inp['input_json']
+                self.output_json = val_inp['output_json']
+                self.current_state = val_inp['current_state']
                 self.save()
             except ValidationError as ve:
                 error_details = {'error_type': ve.error_type,
                                  'error_traceback': traceback,}
                 self.handle_error_response(ve)
-            return val_inp, val_status
+            return val_inp
 
+
+Once the inputs are validated in this stage, the ``func`` instance can be advanced to execution. Other possible state transitions could be: ``handle error response`` if the validation fails or ``cancel`` if the user cancels the execution before it advances to a running state.
+
+    .. code-block::
 
         def execute():
             ...
@@ -296,8 +312,11 @@ The ``ExecutionResultManager`` can be extended to define handling state transiti
                 result = json.loads(result.json())
                 self.output_json = result
                 self.inputs = _get_inputs(self.uuid, input_json, self.status, current_state, EXECUTE, self.output_json)
-                result_out, result_status = get_current_state(result, self.status)
-                self.status = result_status # will be self.ExecutionStatus.DONE
+                result_out = get_current_state(self.inputs)
+                self.status = result_out['status'] # will be self.ExecutionStatus.DONE
+                self.input_json = val_inp['input_json']
+                self.output_json = val_inp['output_json']
+                self.current_state = val_inp['current_state']
                 with transaction.atomic():
                         self.save()
             except ExecutionError as ee:
@@ -306,24 +325,44 @@ The ``ExecutionResultManager`` can be extended to define handling state transiti
                 error_response = self.handle_error_response(error_details)
                 return error_response
             ...
-            return result_out, result_status
+            return result_out
 
         def cancel():
             ...
             self.inputs = _get_inputs(self.uuid, input_json, self.status, current_state, CANCEL, self.output_json)
-            cancel_out, cancel_status = get_current_state(self.inputs, self.status)
-            self.status = cancel_status # will be self.ExecutionStatus.CANCELLED
+            cancel_out = get_current_state(self.inputs, self.status)
+            self.status = cancel_out['status'] # will be self.ExecutionStatus.CANCELLED
+            self.input_json = val_inp['input_json']
+            self.output_json = val_inp['output_json']
+            self.current_state = val_inp['current_state']
             with transaction.atomic():
                 self.save()
             ...
-            return cancel_out, cancel_status
+            return cancel_out
 
         def update():
             ...
             self.inputs = _get_inputs(self.uuid, input_json, self.status, current_state, UPDATE, self.output_json)
-            update_out, update_status = get_current_state(self.inputs, self.status)
-            self.status = update_status # will be self.ExecutionStatus.UPDATED
+            update_out = get_current_state(self.inputs)
+            self.status = update_out['status'] # will be self.ExecutionStatus.UPDATED
+            self.input_json = val_inp['input_json']
+            self.output_json = val_inp['output_json']
+            self.current_state = val_inp['current_state']
             with transaction.atomic():
                 self.save()
             ...
-            return update_out, update_status
+            return update_out
+
+
+Define tasks to pick up pending operations and move them to the next state.
+
+.. code-block::
+
+    @shared_task()
+    def advance_executions():
+    pending_executions = ExecutionResult.objects.pending()
+    for pending_exc in pending_executions:
+        pending_exc.advance()
+    return
+
+
