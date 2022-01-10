@@ -88,6 +88,8 @@ The ``create_execution`` method is expected to validate arguments and prep data 
 For any functions added, the first time the function is called as an execution, an ``ExecutionResult`` object is created. The input are stored as ``self.inputs`` on the object, and the previous return value is stored as ``self.state``.
 You can also write a default function like ``get_current_state`` that simply takes inputs and state as arguments and returns a new state.
 
+The ``get_current_state`` can call on the ``ExecutionManager`` to poll for internal state of object with the given inputs (uuid, input_json, current status etc.) and return the new state (output) and status based on the next transition.
+
 The ``execute`` function can define the app-specific behavior for running a function. This can be triggered by the task (celery or other type) handler for asynchronous function executions.
 
 .. code-block::
@@ -272,9 +274,18 @@ This provides views for asynchronous functions, which is the default execution m
 
 Extend the functionality of the `ExecutionResult` model to define ways to create, run, update and cancel executions.
 
+
+Define a manager ``ExecutionResultManager`` for managing the internal state and transitions of the execution objects.
+This should be able to poll for any state changes to execution instances and do the required to return current state and status for each object when called from ``get_current_state``.
+The ``ExecutionResultManager`` can be extended to define handling state transitions and polling methods for different functions.
+
+
 .. code-block::
 
-    class ExecutionResult(models.Model):
+    class ExecutionResultManager(models.Manager):
+        model = ExecutionResult
+        inputs = {}
+
         def get_current_state(inputs, status):
             # Override this to define app-specific behavior
             # to calculate internal state of inputs (based on output from previous task),
@@ -293,24 +304,30 @@ Extend the functionality of the `ExecutionResult` model to define ways to create
             ...
             return error_response
 
-        def _validate_inputs(inputs, func_name, status):
+        def _validate_inputs(input, func_name, status):
             # Can be overridden to define app-specific input validation for function executions
             return get_current_state(inputs, status)
+
+        def _get_inputs(uuid, input_json, status, current_state, next_state, output_json):
+            return {'input_json': input_json ,
+                               'uuid': uuid,
+                               'status': status,
+                               'current_state': current_state, # Could be None to start with
+                               'next_state': next_state # Could pass next possible state
+                               'output_json': output_json # None until output is ready
+            }
 
         def create(**kwargs):
             ...
             try:
                 self.func = self.get_function()
                 # Here the execution instance is created, so the
-                self.inputs = self.cleaned_data(kwargs['input'])
+                input_json = self.cleaned_data(kwargs['input_json'])
+                self.inputs = _get_inputs(self.uuid, input_json, self.status, None, next_state, None)
                 cur_inp, cur_status = get_current_state(self.inputs, self.status)
                 self.status = cur_status # will be self.ExecutionStatus.CREATED
                 with transaction.atomic():
                     self.save()
-                create_response['uuid'] = self.uuid
-                create_response['status'] = self.status
-                create_response['output_json'] = json.dumps({
- "message": "The execution is in progress and will update upon completion"})
                  ...
             except CreationError as ce:
                 error_details = {'error_type': ce.error_type,
@@ -321,6 +338,7 @@ Extend the functionality of the `ExecutionResult` model to define ways to create
 
         def start(**kwargs):
             ...
+            self.inputs = _get_inputs(self.uuid, input_json, self.status, current_state, next_state, None)
             # Generic behavior for starting functions
             cur_inp, cur_status = get_current_state(self.inputs, self.status)
             self.status = cur_status # will be ExecutionStatus.STARTED
@@ -341,6 +359,7 @@ Extend the functionality of the `ExecutionResult` model to define ways to create
                 result = original_result = func(**self.inputs)
                 result = json.loads(result.json())
                 self.output_json = result
+                self.inputs = _get_inputs(self.uuid, input_json, self.status, current_state, EXECUTE, self.output_json)
                 result_out, result_status = get_current_state(result, self.status)
                 self.status = result_status # will be self.ExecutionStatus.DONE
                 with transaction.atomic():
@@ -355,9 +374,20 @@ Extend the functionality of the `ExecutionResult` model to define ways to create
 
         def cancel():
             ...
+            self.inputs = _get_inputs(self.uuid, input_json, self.status, current_state, CANCEL, self.output_json)
             cancel_out, cancel_status = get_current_state(self.inputs, self.status)
             self.status = cancel_status # will be self.ExecutionStatus.CANCELLED
             with transaction.atomic():
                 self.save()
-            ....
+            ...
             return cancel_out, cancel_status
+
+        def update():
+            ...
+            self.inputs = _get_inputs(self.uuid, input_json, self.status, current_state, UPDATE, self.output_json)
+            update_out, update_status = get_current_state(self.inputs, self.status)
+            self.status = update_status # will be self.ExecutionStatus.UPDATED
+            with transaction.atomic():
+                self.save()
+            ...
+            return update_out, update_status
