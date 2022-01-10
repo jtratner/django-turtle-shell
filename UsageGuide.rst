@@ -217,7 +217,8 @@ Define a manager ``ExecutionResultManager`` for managing the internal state and 
 This should be able to poll for any state changes to execution instances and do the required to return current state and status for each object when called from ``get_current_state``.
 
 Define tasks to pick up pending operations and move them to the next state.
-The ``advance()`` for each object would ideally take the current state, next possible state, current status and call on the next state to update the state and status.
+The ``start()`` task would ideally start new executions created (objects with ``state="CREATED``). This would take care of validating inputs for these newly created executions, which can then be marked as pending to be picked up.
+``advance()`` for each object would ideally take the current state, next possible state, current status and call on the next state to update the state and status.
 
 .. code-block::
 
@@ -227,6 +228,14 @@ The ``advance()`` for each object would ideally take the current state, next pos
     for pending_exc in pending_executions:
         pending_exc.advance()
     return
+
+    @shared_task()
+    def start_executions():
+    created_executions = ExecutionResult.object.filter(status="CREATED")
+    for created_exc in created_executions:
+        created_exc.start()
+    return
+
 
 The ``ExecutionResultManager`` can be extended to define handling state transitions and polling methods for different functions.
 
