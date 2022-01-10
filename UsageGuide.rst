@@ -160,70 +160,6 @@ The default state transitions defined in the django turtle-shell are:
 .. image:: docs/images/turtle-shell-state-machine-transitions.png
    :alt: State transitions
 
-Define these new classes:
-
-``ExecutionValidator`` : To define input validation for function executions
-
-``ExecutionStatus``: To define execution states, status at each stage and transitions from one to next
-
-``Execution``: To implement functionality to create, start, execute, update or cancel executions to specific state transitions
-
-``SyncExecutionState``  and ``SyncExecution`` can be special case implementations for synchronous function executions.
-
-
-.. code-block::
-
-    class ExecutionValidator:
-        def validate_execution_input(self, uuid, func_name, input_json):
-            # define validation here
-
-    class ExecutionStatus:
-        states = []
-        def state_transition_filter(self, from_states, to_states):
-            # Default implementation is async
-            # return allowed state transitions
-
-        def transition_state(self, uuid, from_state, to_state):
-            #Change from_state to to_state for the object and save
-
-    class SyncExecutionState(ExecutionStatus):
-        def state_transition_filter(self, from_states, to_states):
-           # Implementation specific to sync execution as needed
-
-    class Execution(ExecutionValidator, ExecutionResult):
-        #all fields in the model are available here
-        execution_state = ExecutionState()
-        def get_function(self):
-            #return function object
-
-        def create_execution(self):
-            func = self.get_function()
-            self.validate_execution_input()
-            self.state = "CREATED"
-
-        @ExecutionState.state_transition_filter()
-        def run_execution(self):
-            json_result = self.func(**self.input_json)
-            self.transition_state(uuid='', from_state=self.state, to_state='next state in flow')
-
-        @ExecutionState.state_transition_filter()
-        def update_execution(self):
-            json_result = self.func(**self.input_json)
-            self.transition_state(uuid='', from_state=self.state, to_state='next state in flow')
-
-        @ExecutionState.state_transition_filter()
-        def cancel_execution(self):
-            self.func.cancel()
-            self.transition_state(uuid='', from_state=self.state, to_state='next state in flow')
-
-    class SyncExecution(Execution):
-        execution_state = SyncExecutionState()
-        def execute(self):
-            self.create_execution()
-            self.run_execution()
-
-        def update(self):
-            self.update_execution()
 
 Extending Views To Support Async/ Sync Function Views
 -----------------------------------------------------
@@ -237,7 +173,7 @@ Redefine Views for asynchronous and synchronous function executions.
 
     class ExecutionListView(ExecutionViewMixin, ListView):
         def get_queryset()
-            # List executions with status (Created, Running, Done, Errored, Updating etc.)
+            # List executions with status (Created, Started, Running, Done, Errored, Updating etc.)
             #order executions by("-created")
 
     class ExecutionCreateView(ExecutionViewMixin, CreateView):
@@ -247,7 +183,7 @@ Redefine Views for asynchronous and synchronous function executions.
             ...
 
         def form_valid():
-            self.object.create_execution()
+            self.object.create()
             ....
 
 This provides views for asynchronous functions, which is the default execution mode. This can be overridden to define special case functionality for synchronous functions.
@@ -268,8 +204,8 @@ This provides views for asynchronous functions, which is the default execution m
         def get_context_data():
             ...
         def form_valid():
-            self.object.create_execution()
-            self.object.execute()
+            self.object.create()
+            self.object.start()
             ...
 
 Extend the functionality of the `ExecutionResult` model to define ways to create, run, update and cancel executions.
