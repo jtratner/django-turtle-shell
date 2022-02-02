@@ -180,6 +180,17 @@ And finally run migrations::
 
 Now you can get list view / form to create / graphql API to create.
 
+Running the Tests
+-----------------
+
+```
+poetry install
+poetry run pytest
+```
+
+
+
+
 Example Implementation
 ----------------------
 
