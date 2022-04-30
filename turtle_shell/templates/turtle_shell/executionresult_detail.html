@@ -1,0 +1,34 @@
+{% extends 'base.html' %}
+{% load pydantic_to_table %}
+
+{% block content %}
+<div class="row col-md-12">
+<h2>Execution for {{func_name}} ({{object.pk}})</h2>
+</div>
+<div class="row col-md-12">
+<h4> State </h4>
+</div>
+<p>{{object.status}}</p>
+{% if object.pydantic_object %}
+<div class="row col-md-12">
+<h4>Results</h4>
+{{object.pydantic_object|pydantic_model_to_table}}
+</div>
+{% endif %}
+<div class="row col-md-12">
+<h4>Original Data </h4>
+<table class="table table-striped table-responsive">
+<tbody>
+{% include "turtle_shell/executionresult_summaryrow.html" with key="Input" data=object.input_json %}
+{% include "turtle_shell/executionresult_summaryrow.html" with key="Output" data=object.output_json %}
+{% include "turtle_shell/executionresult_summaryrow.html" with key="Error" data=object.error_json %}
+{% include "turtle_shell/executionresult_summaryrow.html" with key="Traceback" data=object.traceback skip_pprint=True %}
+{% load tz %}
+{% get_current_timezone as TIME_ZONE %}
+<tr><th scope="col">User</th><td>{{object.user}}</td></tr>
+<tr><th scope="col">Created</th><td>{{object.created}} ({{TIME_ZONE}})</td></tr>
+<tr><th scope="col">Modified</th><td>{{object.modified}} ({{TIME_ZONE}})</td></tr>
+</tbody>
+</table>
+</div>
+{% endblock content %}

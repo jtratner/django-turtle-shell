@@ -1,0 +1,31 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<h2>Executions for {{func_name}} </h2>
+<p><form action="{% url 'turtle_shell:create-'|add:func_name %}"><button class="btn btn-default btn-primary">Create a new execution <span class="glyphicon glyphicon-plus" aria-hidden="true"></span></button></form></p>
+{% if object_list %}
+<table class="table table-striped table-responsive">
+    <thead>
+        <tr>{% for object in object_list|slice:":1" %}
+        {% for _, field in object.FIELDS_TO_SHOW_IN_LIST %}
+        <th scope="col">{{field}}</th>
+        {% endfor %}
+        <th scope="col">UUID</th>
+        {% endfor %}
+    </tr>
+    </thead>
+    <tbody>
+        {% for object in object_list %}
+        <tr>
+        {% for elem in object.list_entry %}
+        <td>{{elem}}</td>
+        {% endfor %}
+        <td><a href="{{object.get_absolute_url}}">{{ object.uuid }}</a></td>
+        {% endfor %}
+        </tr>
+    </tbody>
+</table>
+{% else %}
+<p> No executions :( </p>
+{% endif %}
+{% endblock content %}

@@ -1,0 +1,10 @@
+{% extends 'base.html' %}
+{% load crispy_forms_tags %}
+
+{% block content %}
+<h2>New Execution for {{func_name}}</h2>
+<pre class="pre pre-scrollable">{{doc}}</pre>
+{% crispy form %}
+{% endblock content %}
+
+

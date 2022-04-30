@@ -1,0 +1,5 @@
+include README.rst
+include LICENSE
+recursive-include turtle_shell/static *
+recursive-include turtle_shell/templates *
+recursive-include docs *

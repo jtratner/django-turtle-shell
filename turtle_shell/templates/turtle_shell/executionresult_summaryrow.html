@@ -1,0 +1,11 @@
+{% if data %}
+<tr>
+  <th scope="col">{{ key }}</th>
+  <td>
+    <details>
+        <summary>{{ data|truncatechars:50 }}</summary>
+        <pre class="pre pre-scrollable bg-dark text-light"><code>{%if skip_pprint %}{{ data|escape }}{% else %}{{data|pprint|escape}}{%endif%}</code></pre>
+    </details>
+  </td>
+</tr>
+{% endif %}
